@@ -1,0 +1,31 @@
+[project]
+name = "hy-finetune"
+version = "0.1.0"
+description = "Minimal Hy-MT 1.5 and Hy-MT2 fine-tuning setup."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "transformers>=5.6.0",
+    "datasets>=4.4.0",
+    "torch>=2.10.0",
+    "torchvision",
+    "torchaudio",
+    "accelerate>=1.11.0",
+    "peft>=0.18.1",
+    "sentencepiece",
+    "protobuf",
+    "wandb",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+deepspeed = [
+    "deepspeed>=0.18.7",
+    "ninja",
+]
+flash = [
+    "flash-attn",
+]
+
+[tool.uv]
+package = false
