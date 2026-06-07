@@ -34,7 +34,11 @@ FR_MOS_ORIGINAL = "fr_mos_original"
 FR_MOS_ROUNDTRIP = "fr_mos_roundtrip"
 EN_MOS = "en_mos"
 FR_MOS_SYNTHETIC = "fr_mos_synthetic"
-
+INSTRUCTION_V2 = (
+    "Translate the following {source_lang} text into {target_lang}, "
+    "output only the translation result without additional explanation:"
+)
+INSTRUCTION_V1 = "Translate the following segment into {target_lang}, without additional explanation."
 
 MIXES = {
     "default": {
@@ -112,12 +116,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--total-examples", type=int, required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
+        "--instruction-version",
+        choices=("v1", "v2"),
+        default="v2",
+        help="Use v1 system-message instruction style or v2 user-message instruction style.",
+    )
+    parser.add_argument(
         "--instruction",
         help=(
-            "Optional instruction template for the user message. Supports "
-            "{source_lang} and {target_lang}; the source text is appended after a blank line. "
-            "For Hy-MT 1.5 use: 'Translate the following segment into {target_lang}, "
-            "without additional explanation.'"
+            "Optional override for the instruction template. Supports "
+            "{source_lang} and {target_lang}."
         ),
     )
     parser.add_argument(
@@ -316,32 +324,39 @@ def sample_pairs(
     return sampled
 
 
-def build_prompt(source: str, source_lang: str, target_lang: str, instruction: str | None) -> str:
-    if instruction:
-        rendered_instruction = instruction.format(source_lang=source_lang, target_lang=target_lang)
-        return f"{rendered_instruction}\n\n{source}"
-    return source
-
-
 def to_sharegpt(
     source: str,
     target: str,
     source_lang: str,
     target_lang: str,
     instruction: str | None,
+    instruction_version: str,
 ) -> dict[str, Any]:
-    prompt = build_prompt(source, source_lang, target_lang, instruction)
-    return {
-        "messages": [
+    messages = []
+    if instruction:
+        rendered_instruction = instruction.format(source_lang=source_lang, target_lang=target_lang)
+        if instruction_version == "v1":
+            messages.append({"role": "system", "content": rendered_instruction})
+            prompt = source
+        else:
+            prompt = f"{rendered_instruction}\n\n{source}"
+    else:
+        prompt = source
+
+    messages.extend(
+        [
             {"role": "user", "content": prompt},
             {"role": "assistant", "content": target},
         ]
-    }
+    )
+    return {"messages": messages}
 
 
 def main() -> None:
     args = parse_args()
     rng = random.Random(args.seed)
+    default_instruction = INSTRUCTION_V1 if args.instruction_version == "v1" else INSTRUCTION_V2
+    instruction = args.instruction if args.instruction is not None else default_instruction
 
     buckets = {bucket_name: load_bucket(args, bucket_name) for bucket_name in BUCKET_SPECS}
     counts = allocation(MIXES[args.stage], buckets, args.total_examples)
@@ -355,7 +370,8 @@ def main() -> None:
                     example.target_text,
                     example.source_lang,
                     example.target_lang,
-                    args.instruction,
+                    instruction,
+                    args.instruction_version,
                 )
             )
 
