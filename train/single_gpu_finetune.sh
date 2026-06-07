@@ -83,13 +83,13 @@ echo "============================================"
     --train_data_file "${train_data_file}" \
     "${EVAL_ARGS[@]}" \
     --output_dir "${output_path}" \
-    --per_device_train_batch_size "${PER_DEVICE_TRAIN_BATCH_SIZE:-1}" \
-    --gradient_accumulation_steps "${GRADIENT_ACCUMULATION_STEPS:-1}" \
+    --per_device_train_batch_size "${PER_DEVICE_TRAIN_BATCH_SIZE:-16}" \
+    --gradient_accumulation_steps "${GRADIENT_ACCUMULATION_STEPS:-4}" \
     --gradient_checkpointing \
     --lr_scheduler_type cosine_with_min_lr \
     --save_total_limit "${SAVE_TOTAL_LIMIT:-2}" \
     --logging_steps "${LOGGING_STEPS:-1}" \
-    --num_train_epochs "${NUM_TRAIN_EPOCHS:-3}" \
+    --num_train_epochs "${NUM_TRAIN_EPOCHS:-1}" \
     --max_steps "${MAX_STEPS:--1}" \
     --save_steps "${SAVE_STEPS:-200}" \
     --learning_rate "${LEARNING_RATE:-5e-5}" \
