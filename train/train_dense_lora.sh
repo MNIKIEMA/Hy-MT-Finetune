@@ -61,19 +61,9 @@ SCRIPT_DIR=$(dirname "$0")
 if [[ "${MODEL_SIZE}" == "1.8B" ]]; then
     model_path=path_to_dense_1_8b_model
     output_path=dense_1_8b_lora_output
-    HIDDEN_SIZE=2048
-    INTERMEDIATE_SIZE=6144
-    NUM_ATTENTION_HEADS=16
-    NUM_KEY_VALUE_HEADS=4
-    NUM_LAYERS=32
 else
     model_path=path_to_dense_7b_model
     output_path=dense_7b_lora_output
-    HIDDEN_SIZE=4096
-    INTERMEDIATE_SIZE=14336
-    NUM_ATTENTION_HEADS=32
-    NUM_KEY_VALUE_HEADS=8
-    NUM_LAYERS=32
 fi
 
 tokenizer_path=${model_path}
@@ -119,11 +109,6 @@ python \
     --warmup_ratio 0.01 \
     --save_strategy steps \
     --bf16 \
-    --hidden_size ${HIDDEN_SIZE} \
-    --intermediate_size ${INTERMEDIATE_SIZE} \
-    --num_attention_heads ${NUM_ATTENTION_HEADS} \
-    --num_key_value_heads ${NUM_KEY_VALUE_HEADS} \
-    --num_layers ${NUM_LAYERS} \
     --model_max_length 4096 \
     --max_seq_length 4096 \
     --use_qk_norm \

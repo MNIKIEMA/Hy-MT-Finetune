@@ -48,20 +48,6 @@ train_data_file=${TRAIN_DATA_FILE:-"${SCRIPT_DIR}/../data/example_data.jsonl"}
 eval_data_file=${EVAL_DATA_FILE:-""}
 output_path=${OUTPUT_PATH:-"${SCRIPT_DIR}/../hf_train_output"}
 
-if [[ "${MODEL_SIZE}" == "1.8B" ]]; then
-    HIDDEN_SIZE=${HIDDEN_SIZE:-2048}
-    INTERMEDIATE_SIZE=${INTERMEDIATE_SIZE:-6144}
-    NUM_ATTENTION_HEADS=${NUM_ATTENTION_HEADS:-16}
-    NUM_KEY_VALUE_HEADS=${NUM_KEY_VALUE_HEADS:-4}
-    NUM_LAYERS=${NUM_LAYERS:-32}
-else
-    HIDDEN_SIZE=${HIDDEN_SIZE:-4096}
-    INTERMEDIATE_SIZE=${INTERMEDIATE_SIZE:-14336}
-    NUM_ATTENTION_HEADS=${NUM_ATTENTION_HEADS:-32}
-    NUM_KEY_VALUE_HEADS=${NUM_KEY_VALUE_HEADS:-8}
-    NUM_LAYERS=${NUM_LAYERS:-32}
-fi
-
 mkdir -p "${output_path}"
 
 current_time=$(date "+%Y.%m.%d-%H.%M.%S")
@@ -112,15 +98,11 @@ echo "============================================"
     --save_strategy steps \
     --model_max_length "${MODEL_MAX_LENGTH:-512}" \
     --max_seq_length "${MAX_SEQ_LENGTH:-512}" \
-    --hidden_size "${HIDDEN_SIZE}" \
-    --intermediate_size "${INTERMEDIATE_SIZE}" \
-    --num_attention_heads "${NUM_ATTENTION_HEADS}" \
-    --num_key_value_heads "${NUM_KEY_VALUE_HEADS}" \
-    --num_layers "${NUM_LAYERS}" \
     --use_qk_norm \
     --use_lora \
     --lora_rank "${LORA_RANK:-64}" \
     --lora_alpha "${LORA_ALPHA:-128}" \
     --lora_dropout "${LORA_DROPOUT:-0.05}" \
     --bf16 \
+    --report_to wandb \
     "${BEST_MODEL_ARGS[@]}" | tee "${log_file}"

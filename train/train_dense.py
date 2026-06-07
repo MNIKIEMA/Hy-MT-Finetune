@@ -88,11 +88,6 @@ class ModelArguments:
         default=None,
         metadata={"help": "Path to an existing LoRA adapter checkpoint to continue training."}
     )
-    hidden_size: int = field(default=2048, metadata={"help": "The hidden size of the model."})
-    num_layers: int = field(default=32, metadata={"help": "The number of layers of the model."})
-    num_attention_heads: int = field(default=16, metadata={"help": "The number of attention heads of the model."})
-    intermediate_size: int = field(default=6144, metadata={"help": "The intermediate size of the model."})
-    num_key_value_heads: int = field(default=4, metadata={"help": "The number of key-value heads in GQA."})
     use_qk_norm: bool = field(default=False, metadata={"help": "Whether to use qk norm."})
     tie_word_embeddings: bool = field(
         default=True,
