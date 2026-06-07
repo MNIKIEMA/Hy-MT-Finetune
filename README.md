@@ -112,6 +112,22 @@ uv run python scripts/mix_translation_data.py validation
 
 This writes `eval/fr_mos_natural.jsonl` from `madoss/fr-mos-final-data` validation and `eval/en_mos_flores_dev.jsonl` from FLORES+ `eng_Latn`/`mos_Latn` dev.
 
+## Data Mixing
+
+Use `default` for a single mixed-data run:
+
+```bash
+uv run python scripts/mix_translation_data.py mix --stage default --output data/mixed_default.jsonl --total-examples 100000 ...
+```
+
+For staged training, do not use `default`. Build and train stages in order:
+
+```text
+stage1 -> stage2 -> stage3
+```
+
+The validation files stay the same for every stage.
+
 ## Config Guide
 
 The dense launchers select model-specific defaults:
