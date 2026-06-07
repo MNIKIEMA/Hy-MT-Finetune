@@ -35,6 +35,7 @@ FR_MOS_ROUNDTRIP = "fr_mos_roundtrip"
 EN_MOS = "en_mos"
 FR_MOS_SYNTHETIC = "fr_mos_synthetic"
 TARGET_LANG_LABEL = "Mossi"
+FLORES_TEXT_COLUMNS = ("text", "sentence", "raw_sentence", "sentence_text")
 INSTRUCTION_V2 = (
     "Translate the following {source_lang} text into {target_lang}, "
     "output only the translation result without additional explanation:"
@@ -105,17 +106,7 @@ BUCKET_SPECS = {
 }
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Mix translation buckets into ShareGPT-style JSONL. Local JSONL paths work "
-            "without extra dependencies. Hugging Face dataset ids require `uv sync --extra data`."
-        )
-    )
-    parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--stage", choices=sorted(MIXES), default="default")
-    parser.add_argument("--total-examples", type=int, required=True)
-    parser.add_argument("--seed", type=int, default=42)
+def add_common_instruction_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--instruction-version",
         choices=("v1", "v2"),
@@ -129,6 +120,14 @@ def parse_args() -> argparse.Namespace:
             "{source_lang} and {target_lang}."
         ),
     )
+
+
+def add_mix_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--stage", choices=sorted(MIXES), default="default")
+    parser.add_argument("--total-examples", type=int, required=True)
+    parser.add_argument("--seed", type=int, default=42)
+    add_common_instruction_args(parser)
     parser.add_argument(
         "--fr-mos-original",
         dest=FR_MOS_ORIGINAL,
@@ -158,6 +157,41 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Drop duplicate source/target pairs per bucket.",
     )
+
+
+def add_validation_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--fr-mos-output", type=Path, default=Path("eval/fr_mos_natural.jsonl"))
+    parser.add_argument("--en-mos-output", type=Path, default=Path("eval/en_mos_flores_dev.jsonl"))
+    parser.add_argument("--fr-mos-dataset", default="madoss/fr-mos-final-data")
+    parser.add_argument("--fr-mos-split", default="validation")
+    parser.add_argument("--flores-dataset", default="openlanguagedata/flores_plus")
+    parser.add_argument("--flores-split", default="dev")
+    parser.add_argument("--source-config", default="eng_Latn")
+    parser.add_argument("--target-config", default="mos_Latn")
+    parser.add_argument("--max-examples", type=int, help="Optional cap applied to each output file.")
+    add_common_instruction_args(parser)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Build fr/en -> mos ShareGPT-style JSONL. Local JSONL paths work without extra dependencies. "
+            "Hugging Face dataset ids require `uv sync --extra data`."
+        )
+    )
+    subparsers = parser.add_subparsers(dest="command")
+
+    mix_parser = subparsers.add_parser("mix", help="Build weighted training JSONL.")
+    add_mix_args(mix_parser)
+
+    validation_parser = subparsers.add_parser("validation", help="Build training-time validation JSONL.")
+    add_validation_args(validation_parser)
+
+    if len(sys.argv) > 1 and sys.argv[1] in {"mix", "validation"}:
+        return parser.parse_args()
+
+    add_mix_args(parser)
+    parser.set_defaults(command="mix")
     return parser.parse_args()
 
 
@@ -175,10 +209,13 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def read_hf_dataset(name: str) -> list[dict[str, Any]]:
+def read_hf_dataset(name: str, split: str = "train", config: str | None = None) -> list[dict[str, Any]]:
     from datasets import load_dataset
 
-    dataset = load_dataset(name, split="train")
+    if config:
+        dataset = load_dataset(name, config, split=split)
+    else:
+        dataset = load_dataset(name, split=split)
     return [dict(row) for row in dataset]
 
 
@@ -210,6 +247,18 @@ def required_text(row: dict[str, Any], column: str, label: str | None = None) ->
     if not text:
         raise ValueError(f"Column {(label or column)!r} must not be empty.")
     return text
+
+
+def text_from_flores_row(row: dict[str, Any]) -> str:
+    for column in FLORES_TEXT_COLUMNS:
+        if column in row:
+            return required_text(row, column)
+    string_columns = [column for column, value in row.items() if isinstance(value, str) and value.strip()]
+    if len(string_columns) == 1:
+        return required_text(row, string_columns[0])
+    available = ", ".join(sorted(row))
+    accepted = ", ".join(FLORES_TEXT_COLUMNS)
+    raise KeyError(f"Could not find FLORES text column. Accepted: {accepted}. Available: {available}.")
 
 
 def find_text_column(row: dict[str, Any], columns: list[str]) -> str | None:
@@ -353,8 +402,67 @@ def to_sharegpt(
     return {"messages": messages}
 
 
-def main() -> None:
-    args = parse_args()
+def instruction_for_version(version: str, override: str | None) -> str:
+    if override is not None:
+        return override
+    return INSTRUCTION_V1 if version == "v1" else INSTRUCTION_V2
+
+
+def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> int:
+    count = 0
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+            count += 1
+    return count
+
+
+def build_fr_mos_validation(args: argparse.Namespace, instruction: str) -> list[dict[str, Any]]:
+    dataset = read_hf_dataset(args.fr_mos_dataset, split=args.fr_mos_split)
+    rows = []
+    for row in dataset:
+        rows.append(
+            to_sharegpt(
+                source=required_text(row, "french"),
+                target=required_text(row, "moore"),
+                source_lang="French",
+                target_lang=TARGET_LANG_LABEL,
+                instruction=instruction,
+                instruction_version=args.instruction_version,
+            )
+        )
+        if args.max_examples and len(rows) >= args.max_examples:
+            break
+    return rows
+
+
+def build_en_mos_flores_validation(args: argparse.Namespace, instruction: str) -> list[dict[str, Any]]:
+    source_dataset = read_hf_dataset(args.flores_dataset, split=args.flores_split, config=args.source_config)
+    target_dataset = read_hf_dataset(args.flores_dataset, split=args.flores_split, config=args.target_config)
+    if len(source_dataset) != len(target_dataset):
+        raise ValueError(
+            f"FLORES source/target split sizes differ: {len(source_dataset)} vs {len(target_dataset)}."
+        )
+
+    rows = []
+    for source_row, target_row in zip(source_dataset, target_dataset, strict=True):
+        rows.append(
+            to_sharegpt(
+                source=text_from_flores_row(dict(source_row)),
+                target=text_from_flores_row(dict(target_row)),
+                source_lang="English",
+                target_lang=TARGET_LANG_LABEL,
+                instruction=instruction,
+                instruction_version=args.instruction_version,
+            )
+        )
+        if args.max_examples and len(rows) >= args.max_examples:
+            break
+    return rows
+
+
+def run_mix(args: argparse.Namespace) -> None:
     rng = random.Random(args.seed)
     default_instruction = INSTRUCTION_V1 if args.instruction_version == "v1" else INSTRUCTION_V2
     instruction = args.instruction if args.instruction is not None else default_instruction
@@ -377,15 +485,31 @@ def main() -> None:
             )
 
     rng.shuffle(examples)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("w", encoding="utf-8") as handle:
-        for example in examples:
-            handle.write(json.dumps(example, ensure_ascii=False) + "\n")
-
+    write_jsonl(args.output, examples)
     print(f"Wrote {len(examples)} examples to {args.output}")
     for bucket_name, spec in BUCKET_SPECS.items():
         if bucket_name in counts:
             print(f"{bucket_name} ({spec.display_name}): {counts[bucket_name]}")
+
+
+def run_validation(args: argparse.Namespace) -> None:
+    instruction = instruction_for_version(args.instruction_version, args.instruction)
+
+    fr_mos_rows = build_fr_mos_validation(args, instruction)
+    count = write_jsonl(args.fr_mos_output, fr_mos_rows)
+    print(f"Wrote {count} examples to {args.fr_mos_output}")
+
+    en_mos_rows = build_en_mos_flores_validation(args, instruction)
+    count = write_jsonl(args.en_mos_output, en_mos_rows)
+    print(f"Wrote {count} examples to {args.en_mos_output}")
+
+
+def main() -> None:
+    args = parse_args()
+    if args.command == "validation":
+        run_validation(args)
+    else:
+        run_mix(args)
 
 
 if __name__ == "__main__":

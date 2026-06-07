@@ -104,6 +104,14 @@ ADAPTER_PATH=dense_1_8b_lora_output/checkpoint-30 bash train/train_dense_lora.sh
 
 For staged data mixing, keep `model_path` pointed at the original base model and set `ADAPTER_PATH` to the previous stage adapter checkpoint for stage 2 and stage 3.
 
+Build validation JSONL for dense training:
+
+```bash
+uv run python scripts/mix_translation_data.py validation
+```
+
+This writes `eval/fr_mos_natural.jsonl` from `madoss/fr-mos-final-data` validation and `eval/en_mos_flores_dev.jsonl` from FLORES+ `eng_Latn`/`mos_Latn` dev.
+
 ## Config Guide
 
 The dense launchers select model-specific defaults:
