@@ -58,7 +58,6 @@ from torch.utils.data import Dataset
 from transformers import EarlyStoppingCallback, Trainer, TrainerCallback
 from peft import LoraConfig, get_peft_model, PeftModel
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
-import wandb
 
 
 def is_rank_zero():
@@ -137,8 +136,6 @@ class TrainingArguments(transformers.TrainingArguments):
         default=1e-6,
         metadata={"help": "The minimum learning rate at the end of the cosine decay."}
     )
-    enable_wandb: bool = field(default=False, metadata={"help": "Initialize Weights & Biases logging."})
-    wandb_project: str = field(default="hy-mt-finetuning", metadata={"help": "Weights & Biases project name."})
     early_stopping_patience: int = field(
         default=5,
         metadata={"help": "Early-stopping patience when eval_data_file is provided. Set <= 0 to disable."}
@@ -312,42 +309,7 @@ def train():
     print_args(data_args, 'data arguments')
     print_args(training_args, 'training arguments')
 
-    if training_args.enable_wandb:
-        if wandb is None:
-            raise ImportError("wandb is required when --enable_wandb is set.")
-        if is_rank_zero():
-            wandb.init(
-                project=training_args.wandb_project,
-                name=training_args.run_name,
-                config={
-                    "model_name_or_path": training_args.model_name_or_path,
-                    "use_lora": model_args.use_lora,
-                    "lora_rank": model_args.lora_rank,
-                    "lora_alpha": model_args.lora_alpha,
-                    "lora_dropout": model_args.lora_dropout,
-                    "use_flash_attn": model_args.use_flash_attn,
-                    "model_size": data_args.model_size,
-                    "train_data_file": data_args.train_data_file,
-                    "eval_data_file": data_args.eval_data_file,
-                    "max_seq_length": data_args.max_seq_length,
-                    "use_dummy_data": data_args.use_dummy_data,
-                    "learning_rate": training_args.learning_rate,
-                    "min_lr": training_args.min_lr,
-                    "num_train_epochs": training_args.num_train_epochs,
-                    "per_device_train_batch_size": training_args.per_device_train_batch_size,
-                    "gradient_accumulation_steps": training_args.gradient_accumulation_steps,
-                    "warmup_steps": training_args.warmup_steps,
-                    "warmup_ratio": training_args.warmup_ratio,
-                    "bf16": training_args.bf16,
-                    "fp16": training_args.fp16,
-                },
-            )
-        if training_args.report_to is None or training_args.report_to == "none":
-            training_args.report_to = ["wandb"]
-        elif isinstance(training_args.report_to, str):
-            training_args.report_to = [training_args.report_to]
-        if "wandb" not in training_args.report_to:
-            training_args.report_to.append("wandb")
+    os.environ.setdefault("WANDB_PROJECT", "moore-web-hy-mt-sft")
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         training_args.tokenizer_name_or_path,
