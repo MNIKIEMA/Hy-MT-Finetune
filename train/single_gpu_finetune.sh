@@ -47,7 +47,6 @@ tokenizer_path=${TOKENIZER_PATH:-${model_path}}
 train_data_file=${TRAIN_DATA_FILE:-"${SCRIPT_DIR}/../data/example_data.jsonl"}
 eval_data_file=${EVAL_DATA_FILE:-""}
 output_path=${OUTPUT_PATH:-"${SCRIPT_DIR}/../hf_train_output"}
-ds_config_file=${DS_CONFIG_FILE:-"${SCRIPT_DIR}/ds_zero2_no_offload.json"}
 
 if [[ "${MODEL_SIZE}" == "1.8B" ]]; then
     HIDDEN_SIZE=${HIDDEN_SIZE:-2048}
@@ -86,11 +85,10 @@ echo "Model path: ${model_path}"
 echo "Tokenizer path: ${tokenizer_path}"
 echo "Train data: ${train_data_file}"
 echo "Eval data: ${eval_data_file:-<none>}"
-echo "DeepSpeed config: ${ds_config_file}"
 echo "Output path: ${output_path}"
 echo "============================================"
 
-"${RUNNER[@]}" deepspeed --num_gpus 1 \
+"${RUNNER[@]}" python \
     "${SCRIPT_DIR}/train_dense.py" \
     --do_train \
     --model_size "${MODEL_SIZE}" \
@@ -98,7 +96,6 @@ echo "============================================"
     --tokenizer_name_or_path "${tokenizer_path}" \
     --train_data_file "${train_data_file}" \
     "${EVAL_ARGS[@]}" \
-    --deepspeed "${ds_config_file}" \
     --output_dir "${output_path}" \
     --per_device_train_batch_size "${PER_DEVICE_TRAIN_BATCH_SIZE:-1}" \
     --gradient_accumulation_steps "${GRADIENT_ACCUMULATION_STEPS:-1}" \

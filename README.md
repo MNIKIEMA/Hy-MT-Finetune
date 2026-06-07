@@ -1,6 +1,6 @@
 # Hy-Finetune
 
-Minimal DeepSpeed setup for fine-tuning Hy-MT 1.5 and Hy-MT2 models.
+Minimal setup for fine-tuning Hy-MT 1.5 and Hy-MT2 models.
 
 For full project documentation, model details, and upstream updates, see [Tencent-Hunyuan/Hy-MT2](https://github.com/Tencent-Hunyuan/Hy-MT2).
 
@@ -20,7 +20,7 @@ train/train.py                   # MoE training entrypoint
 train/merge_lora_weight.sh       # LoRA merge launcher
 train/merge_lora_weight.py       # LoRA merge entrypoint
 scripts/mix_translation_data.py   # fr/en -> mos weighted data mixer
-train/ds_zero*.json              # DeepSpeed configs referenced by the launchers
+train/ds_zero*.json              # DeepSpeed configs for full fine-tuning launchers
 ```
 
 ## Install
@@ -168,5 +168,5 @@ Before launching, check these items:
 - `model_path` points to the correct local model folder.
 - `train_data_file` points to your training data.
 - `HOST_GPU_NUM` matches the number of GPUs you want to use.
-- The selected `ds_config_file` matches your memory and hardware setup.
+- For full fine-tuning, the selected `ds_config_file` matches your memory and hardware setup.
 - For 7B training, start with LoRA unless you know full fine-tuning fits on your hardware.

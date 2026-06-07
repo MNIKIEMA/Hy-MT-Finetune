@@ -3,8 +3,8 @@
 # Unified Dense model LoRA fine-tuning script
 # Supports: 1.8B and 7B dense models
 # Usage: bash train_dense_lora.sh [1.8B|7B]
-#   - 1.8B: 1x GPU (24GB+), DeepSpeed ZeRO-2 (no offload)
-#   - 7B:   1x GPU (80GB+), DeepSpeed ZeRO-2 (no offload)
+#   - 1.8B: 1x GPU (24GB+)
+#   - 7B:   1x GPU (48GB+ recommended)
 # LoRA greatly reduces memory requirements compared to full fine-tuning.
 # Optional:
 #   ADAPTER_PATH=/path/to/previous/lora/checkpoint bash train_dense_lora.sh 1.8B
@@ -58,11 +58,6 @@ fi
 # ============== Model-specific Configuration ==============
 SCRIPT_DIR=$(dirname "$0")
 
-# LoRA training uses ZeRO-2 (no offload) for both 1.8B and 7B
-# since only adapter parameters are trained, memory usage is much lower
-export HOST_GPU_NUM=1
-ds_config_file=${SCRIPT_DIR}/ds_zero2_no_offload.json
-
 if [[ "${MODEL_SIZE}" == "1.8B" ]]; then
     model_path=path_to_dense_1_8b_model
     output_path=dense_1_8b_lora_output
@@ -90,59 +85,27 @@ if [[ -n "${adapter_path}" ]]; then
     LORA_ADAPTER_ARGS+=(--adapter-path "${adapter_path}")
 fi
 
-# ============== Multi-node Configuration ==============
-# IP list, comma separated. e.g. "192.168.1.1,192.168.1.2" or single node "192.168.1.1"
-IP_LIST=${IP_LIST:-"127.0.0.1"}
-
-IFS=',' read -ra IP_ARRAY <<< "$IP_LIST"
-export NODES=${#IP_ARRAY[@]}
-export LOCAL_IP=${IP_ARRAY[0]}
-NODE_IP_LIST=""
-for ip in "${IP_ARRAY[@]}"; do
-    if [ -n "$NODE_IP_LIST" ]; then
-        NODE_IP_LIST="${NODE_IP_LIST},"
-    fi
-    NODE_IP_LIST="${NODE_IP_LIST}${ip}:${HOST_GPU_NUM}"
-done
-export NODE_IP_LIST
-export NODE_NUM=$((${NODES} * ${HOST_GPU_NUM}))
-
 # ============== Output & Logging ==============
 mkdir -p ${output_path}
 
 current_time=$(date "+%Y.%m.%d-%H.%M.%S")
 log_file=${output_path}/"log_${current_time}.txt"
 
-echo $NODE_IP_LIST > env.txt 2>&1
-sed "s/:/ slots=/g" env.txt | sed "s/,/\n/g" >  "hostfile"
-sed "s/:.//g" env.txt | sed "s/,/\n/g" >  "pssh.hosts"
-export CHIEF_IP=$LOCAL_IP
-
-if [ ${NODES} -gt 1 ]; then
-    HOST_PATH=hostfile
-    DS_ARGS="--hostfile=${HOST_PATH} --master_addr ${CHIEF_IP}"
-else
-    DS_ARGS=""
-fi
-
 echo "============================================"
 echo "Dense ${MODEL_SIZE} LoRA fine-tuning"
-echo "NODES: ${NODES}, LOCAL_IP: ${LOCAL_IP}, NODE_IP_LIST: ${NODE_IP_LIST}"
-echo "DeepSpeed config: ${ds_config_file}"
 echo "Model path: ${model_path}"
 echo "Adapter path: ${adapter_path:-<fresh adapter>}"
 echo "Output path: ${output_path}"
 echo "============================================"
 
 # ============== Launch Training ==============
-deepspeed ${DS_ARGS} \
+python \
     ${SCRIPT_DIR}/train_dense.py \
     --do_train \
     --model_size ${MODEL_SIZE} \
     --model_name_or_path ${model_path} \
     --tokenizer_name_or_path ${tokenizer_path} \
     --train_data_file ${train_data_file} \
-    --deepspeed ${ds_config_file} \
     --output_dir ${output_path} \
     --per_device_train_batch_size 1 \
     --gradient_accumulation_steps 1 \
