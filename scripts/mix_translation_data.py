@@ -8,23 +8,97 @@ import json
 import random
 import sys
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 
+@dataclass(frozen=True)
+class BucketSpec:
+    display_name: str
+    source_columns: list[str]
+    target_columns: list[str]
+    default_source_lang: str
+    default_target_lang: str
+
+
+@dataclass(frozen=True)
+class TranslationExample:
+    source_text: str
+    target_text: str
+    source_lang: str
+    target_lang: str
+
+
+FR_MOS_ORIGINAL = "fr_mos_original"
+FR_MOS_ROUNDTRIP = "fr_mos_roundtrip"
+EN_MOS = "en_mos"
+FR_MOS_SYNTHETIC = "fr_mos_synthetic"
+
+
 MIXES = {
-    "default": {"a": 0.35, "b": 0.15, "c": 0.45, "d": 0.05},
-    "stage1": {"a": 0.25, "b": 0.15, "c": 0.60, "d": 0.00},
-    "stage2": {"a": 0.40, "b": 0.15, "c": 0.45, "d": 0.00},
-    "stage3": {"a": 0.50, "b": 0.10, "c": 0.40, "d": 0.00},
+    "default": {
+        FR_MOS_ORIGINAL: 0.35,
+        FR_MOS_ROUNDTRIP: 0.15,
+        EN_MOS: 0.45,
+        FR_MOS_SYNTHETIC: 0.05,
+    },
+    "stage1": {
+        FR_MOS_ORIGINAL: 0.25,
+        FR_MOS_ROUNDTRIP: 0.15,
+        EN_MOS: 0.60,
+        FR_MOS_SYNTHETIC: 0.00,
+    },
+    "stage2": {
+        FR_MOS_ORIGINAL: 0.40,
+        FR_MOS_ROUNDTRIP: 0.15,
+        EN_MOS: 0.45,
+        FR_MOS_SYNTHETIC: 0.00,
+    },
+    "stage3": {
+        FR_MOS_ORIGINAL: 0.50,
+        FR_MOS_ROUNDTRIP: 0.10,
+        EN_MOS: 0.40,
+        FR_MOS_SYNTHETIC: 0.00,
+    },
 }
 
-BUCKET_HELP = {
-    "a": "fr -> mos original/high-quality",
-    "b": "fr -> mos round-tripped or synthetic",
-    "c": "en -> mos",
-    "d": "NLLB translated-French -> mos synthetic",
+BUCKET_SPECS = {
+    FR_MOS_ORIGINAL: BucketSpec(
+        display_name="fr -> mos original/high-quality",
+        source_columns=["source_text", "french"],
+        target_columns=["target_text", "moore"],
+        default_source_lang="French",
+        default_target_lang="Moore",
+    ),
+    FR_MOS_ROUNDTRIP: BucketSpec(
+        display_name="fr -> mos round-tripped or synthetic",
+        source_columns=["source_text", "french_backtranslated", "french"],
+        target_columns=["target_text", "moore"],
+        default_source_lang="French",
+        default_target_lang="Moore",
+    ),
+    EN_MOS: BucketSpec(
+        display_name="en -> mos",
+        source_columns=["source_text", "eng_Latn"],
+        target_columns=["target_text", "mos_Latn", "moore"],
+        default_source_lang="English",
+        default_target_lang="Moore",
+    ),
+    FR_MOS_SYNTHETIC: BucketSpec(
+        display_name="NLLB translated-French -> mos synthetic",
+        source_columns=[
+            "source_text",
+            "eng_Latn_to_fra_Latn",
+            "fra_Latn",
+            "french",
+        ],
+        target_columns=["target_text", "mos_Latn", "moore"],
+        default_source_lang="French",
+        default_target_lang="Moore",
+    ),
 }
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -46,11 +120,35 @@ def parse_args() -> argparse.Namespace:
             "without additional explanation.'"
         ),
     )
-    parser.add_argument("--a", help=f"Bucket A input: {BUCKET_HELP['a']}")
-    parser.add_argument("--b", help=f"Bucket B input: {BUCKET_HELP['b']}")
-    parser.add_argument("--c", help=f"Bucket C input: {BUCKET_HELP['c']}")
-    parser.add_argument("--d", help=f"Bucket D input: {BUCKET_HELP['d']}")
-    parser.add_argument("--dedupe", action="store_true", help="Drop duplicate source/target pairs per bucket.")
+    parser.add_argument(
+        "--fr-mos-original",
+        dest=FR_MOS_ORIGINAL,
+        help=f"Input for {BUCKET_SPECS[FR_MOS_ORIGINAL].display_name}.",
+    )
+    parser.add_argument(
+        "--fr-mos-roundtrip",
+        dest=FR_MOS_ROUNDTRIP,
+        help=f"Input for {BUCKET_SPECS[FR_MOS_ROUNDTRIP].display_name}.",
+    )
+    parser.add_argument(
+        "--en-mos",
+        dest=EN_MOS,
+        help=f"Input for {BUCKET_SPECS[EN_MOS].display_name}.",
+    )
+    parser.add_argument(
+        "--fr-mos-synthetic",
+        dest=FR_MOS_SYNTHETIC,
+        help=f"Input for {BUCKET_SPECS[FR_MOS_SYNTHETIC].display_name}.",
+    )
+    parser.add_argument("--a", dest=FR_MOS_ORIGINAL, help=argparse.SUPPRESS)
+    parser.add_argument("--b", dest=FR_MOS_ROUNDTRIP, help=argparse.SUPPRESS)
+    parser.add_argument("--c", dest=EN_MOS, help=argparse.SUPPRESS)
+    parser.add_argument("--d", dest=FR_MOS_SYNTHETIC, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--dedupe",
+        action="store_true",
+        help="Drop duplicate source/target pairs per bucket.",
+    )
     return parser.parse_args()
 
 
@@ -95,58 +193,99 @@ def required_value(row: dict[str, Any], column: str) -> Any:
         ) from exc
 
 
-def required_text(row: dict[str, Any], column: str) -> str:
+def required_text(row: dict[str, Any], column: str, label: str | None = None) -> str:
     value = required_value(row, column)
     if value is None:
-        raise ValueError(f"Column {column!r} must not be null.")
+        raise ValueError(f"Column {(label or column)!r} must not be null.")
     text = str(value).strip()
     if not text:
-        raise ValueError(f"Column {column!r} must not be empty.")
+        raise ValueError(f"Column {(label or column)!r} must not be empty.")
     return text
 
 
-def normalize_example(row: dict[str, Any]) -> tuple[str, str, str, str]:
-    return (
-        required_text(row, "source_text"),
-        required_text(row, "target_text"),
-        required_text(row, "source_lang"),
-        required_text(row, "target_lang"),
+def find_text_column(row: dict[str, Any], columns: list[str]) -> str | None:
+    for column in columns:
+        if column in row:
+            return column
+    return None
+
+
+def required_text_from_aliases(
+    row: dict[str, Any],
+    bucket_name: str,
+    columns: list[str],
+    field_name: str,
+) -> str:
+    column = find_text_column(row, columns)
+    if column:
+        return required_text(row, column, field_name)
+    available = ", ".join(sorted(row))
+    accepted = ", ".join(columns)
+    raise KeyError(
+        f"Missing {field_name!r} for bucket {bucket_name!r}. "
+        f"Accepted columns: {accepted}. Available columns: {available}."
     )
 
 
-def dedupe_examples(examples: Iterable[tuple[str, str, str, str]]) -> list[tuple[str, str, str, str]]:
+def language_value(row: dict[str, Any], column: str, default: str) -> str:
+    if column in row:
+        return required_text(row, column)
+    return default
+
+
+def normalize_example(row: dict[str, Any], bucket_name: str) -> TranslationExample:
+    spec = BUCKET_SPECS[bucket_name]
+    return TranslationExample(
+        source_text=required_text_from_aliases(
+            row,
+            bucket_name,
+            spec.source_columns,
+            "source_text",
+        ),
+        target_text=required_text_from_aliases(
+            row,
+            bucket_name,
+            spec.target_columns,
+            "target_text",
+        ),
+        source_lang=language_value(row, "source_lang", spec.default_source_lang),
+        target_lang=language_value(row, "target_lang", spec.default_target_lang),
+    )
+
+
+def dedupe_examples(examples: Iterable[TranslationExample]) -> list[TranslationExample]:
     seen = set()
     unique = []
-    for source, target, source_lang, target_lang in examples:
-        key = (source, target, source_lang, target_lang)
+    for example in examples:
+        key = (example.source_text, example.target_text, example.source_lang, example.target_lang)
         if key in seen:
             continue
         seen.add(key)
-        unique.append((source, target, source_lang, target_lang))
+        unique.append(example)
     return unique
 
 
-def load_bucket(args: argparse.Namespace, bucket: str) -> list[tuple[str, str, str, str]]:
-    spec = getattr(args, bucket)
-    if not spec:
+def load_bucket(args: argparse.Namespace, bucket_name: str) -> list[TranslationExample]:
+    input_spec = getattr(args, bucket_name)
+    if not input_spec:
         return []
-    rows = load_rows(spec)
+    rows = load_rows(input_spec)
     examples = []
     for row_number, row in enumerate(rows, start=1):
         try:
-            examples.append(normalize_example(row))
+            examples.append(normalize_example(row, bucket_name))
         except (KeyError, ValueError) as exc:
-            raise ValueError(f"Bucket {bucket.upper()} row {row_number}: {exc}") from exc
+            raise ValueError(f"Bucket {bucket_name!r} row {row_number}: {exc}") from exc
     if args.dedupe:
         examples = dedupe_examples(examples)
     if not examples:
-        raise ValueError(f"Bucket {bucket.upper()} has no usable examples.")
+        raise ValueError(f"Bucket {bucket_name!r} has no usable examples.")
     return examples
 
 
 def allocation(
     weights: dict[str, float],
-    available: dict[str, list[tuple[str, str, str, str]]],
+    available: dict[str, list[TranslationExample]],
     total: int,
 ) -> dict[str, int]:
     active_weights = {bucket: weight for bucket, weight in weights.items() if weight > 0 and available.get(bucket)}
@@ -166,9 +305,9 @@ def allocation(
 
 def sample_pairs(
     rng: random.Random,
-    pairs: list[tuple[str, str, str, str]],
+    pairs: list[TranslationExample],
     count: int,
-) -> list[tuple[str, str, str, str]]:
+) -> list[TranslationExample]:
     if count <= len(pairs):
         return rng.sample(pairs, count)
     sampled = list(pairs)
@@ -204,13 +343,21 @@ def main() -> None:
     args = parse_args()
     rng = random.Random(args.seed)
 
-    buckets = {bucket: load_bucket(args, bucket) for bucket in ("a", "b", "c", "d")}
+    buckets = {bucket_name: load_bucket(args, bucket_name) for bucket_name in BUCKET_SPECS}
     counts = allocation(MIXES[args.stage], buckets, args.total_examples)
 
     examples = []
-    for bucket, count in counts.items():
-        for source, target, source_lang, target_lang in sample_pairs(rng, buckets[bucket], count):
-            examples.append(to_sharegpt(source, target, source_lang, target_lang, args.instruction))
+    for bucket_name, count in counts.items():
+        for example in sample_pairs(rng, buckets[bucket_name], count):
+            examples.append(
+                to_sharegpt(
+                    example.source_text,
+                    example.target_text,
+                    example.source_lang,
+                    example.target_lang,
+                    args.instruction,
+                )
+            )
 
     rng.shuffle(examples)
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -219,9 +366,9 @@ def main() -> None:
             handle.write(json.dumps(example, ensure_ascii=False) + "\n")
 
     print(f"Wrote {len(examples)} examples to {args.output}")
-    for bucket in ("a", "b", "c", "d"):
-        if bucket in counts:
-            print(f"{bucket.upper()} ({BUCKET_HELP[bucket]}): {counts[bucket]}")
+    for bucket_name, spec in BUCKET_SPECS.items():
+        if bucket_name in counts:
+            print(f"{bucket_name} ({spec.display_name}): {counts[bucket_name]}")
 
 
 if __name__ == "__main__":
