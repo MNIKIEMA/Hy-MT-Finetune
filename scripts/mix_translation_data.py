@@ -34,6 +34,7 @@ FR_MOS_ORIGINAL = "fr_mos_original"
 FR_MOS_ROUNDTRIP = "fr_mos_roundtrip"
 EN_MOS = "en_mos"
 FR_MOS_SYNTHETIC = "fr_mos_synthetic"
+TARGET_LANG_LABEL = "Mossi"
 INSTRUCTION_V2 = (
     "Translate the following {source_lang} text into {target_lang}, "
     "output only the translation result without additional explanation:"
@@ -73,21 +74,21 @@ BUCKET_SPECS = {
         source_columns=["source_text", "french"],
         target_columns=["target_text", "moore"],
         default_source_lang="French",
-        default_target_lang="Moore",
+        default_target_lang=TARGET_LANG_LABEL,
     ),
     FR_MOS_ROUNDTRIP: BucketSpec(
         display_name="fr -> mos round-tripped or synthetic",
         source_columns=["source_text", "french_backtranslated", "french"],
         target_columns=["target_text", "moore"],
         default_source_lang="French",
-        default_target_lang="Moore",
+        default_target_lang=TARGET_LANG_LABEL,
     ),
     EN_MOS: BucketSpec(
         display_name="en -> mos",
         source_columns=["source_text", "eng_Latn"],
         target_columns=["target_text", "mos_Latn", "moore"],
         default_source_lang="English",
-        default_target_lang="Moore",
+        default_target_lang=TARGET_LANG_LABEL,
     ),
     FR_MOS_SYNTHETIC: BucketSpec(
         display_name="NLLB translated-French -> mos synthetic",
@@ -99,7 +100,7 @@ BUCKET_SPECS = {
         ],
         target_columns=["target_text", "mos_Latn", "moore"],
         default_source_lang="French",
-        default_target_lang="Moore",
+        default_target_lang=TARGET_LANG_LABEL,
     ),
 }
 
