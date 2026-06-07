@@ -133,39 +133,26 @@ eval/fr_mos_natural.jsonl
 eval/en_mos_flores_dev.jsonl
 ```
 
-The mixer accepts local JSONL files with normalized columns:
-
-```text
-source_text
-target_text
-source_lang
-target_lang
-```
-
-It also accepts the raw source columns described in `data.md`. Use `default` for a single mixed-data run:
+Use the public Hugging Face datasets for a single mixed-data run:
 
 ```bash
 uv run python scripts/mix_translation_data.py mix \
   --stage default \
   --total-examples 100000 \
   --output data/mixed_default.jsonl \
-  --fr-mos-original data/fr_mos_original.jsonl \
-  --fr-mos-roundtrip data/fr_mos_roundtrip.jsonl \
-  --en-mos data/en_mos.jsonl \
-  --fr-mos-synthetic data/nllb_fr_synthetic.jsonl \
+  --fr-mos-original hf:madoss/fr-mos-final-data \
+  --fr-mos-roundtrip hf:madoss/fr-mos-final-data-backtranslated \
+  --en-mos hf:madoss/nllb-en-mos-fr \
+  --fr-mos-synthetic hf:madoss/nllb-en-mos-fr \
   --dedupe
 ```
 
-For Hugging Face datasets, prefix the dataset id with `hf:`:
+This uses:
 
-```bash
-uv run python scripts/mix_translation_data.py mix \
-  --stage stage2 \
-  --total-examples 100000 \
-  --output data/mixed_stage2.jsonl \
-  --fr-mos-original hf:madoss/fr-mos-final-data-backtranslated-merged \
-  --en-mos hf:madoss/nllb-en-mos-fr-filtered-dedup \
-  --dedupe
+```text
+madoss/fr-mos-final-data: french -> moore
+madoss/fr-mos-final-data-backtranslated: french_backtranslated -> moore
+madoss/nllb-en-mos-fr: eng_Latn -> mos_Latn and eng_Latn_to_fra_Latn -> mos_Latn
 ```
 
 For staged training, do not use `default`. Build and train stages in order:
@@ -174,7 +161,22 @@ For staged training, do not use `default`. Build and train stages in order:
 stage1 -> stage2 -> stage3
 ```
 
-The validation files stay the same for every stage. If a stage includes a bucket that is not provided, the mixer renormalizes the remaining provided buckets. See `data.md` for bucket weights, source dataset notes, and Hy-MT 1.x instruction options.
+Example stage command:
+
+```bash
+uv run python scripts/mix_translation_data.py mix \
+  --stage stage1 \
+  --total-examples 100000 \
+  --output data/mixed_stage1.jsonl \
+  --fr-mos-original hf:madoss/fr-mos-final-data \
+  --fr-mos-roundtrip hf:madoss/fr-mos-final-data-backtranslated \
+  --en-mos hf:madoss/nllb-en-mos-fr \
+  --dedupe
+```
+
+The validation files stay the same for every stage. If a stage includes a bucket that is not provided, the mixer renormalizes the remaining provided buckets.
+
+See `data.md` for bucket weights, source dataset notes, and Hy-MT 1.x instruction options.
 
 ## Config Guide
 
