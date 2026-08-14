@@ -128,6 +128,8 @@ deepspeed ${DS_ARGS} \
     --gradient_checkpointing \
     --lr_scheduler_type cosine_with_min_lr \
     --logging_steps 1 \
+    --report_to wandb \
+    --run_name dense_${MODEL_SIZE}_full \
     --max_steps 30 \
     --save_steps 30 \
     --learning_rate 1e-5 \

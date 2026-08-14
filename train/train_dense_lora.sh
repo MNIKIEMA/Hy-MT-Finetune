@@ -102,6 +102,8 @@ python \
     --gradient_checkpointing \
     --lr_scheduler_type cosine_with_min_lr \
     --logging_steps 1 \
+    --report_to wandb \
+    --run_name dense_${MODEL_SIZE}_lora \
     --max_steps 30 \
     --save_steps 30 \
     --learning_rate 2e-4 \
