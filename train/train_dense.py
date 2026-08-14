@@ -47,16 +47,16 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
-import torch
-import shutil
 import logging
+import shutil
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Literal
+from typing import Dict, Literal, Optional
 
+import torch
 import transformers
+from peft import LoraConfig, PeftModel, get_peft_model
 from torch.utils.data import Dataset
 from transformers import EarlyStoppingCallback, Trainer, TrainerCallback
-from peft import LoraConfig, get_peft_model, PeftModel
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
 
@@ -239,11 +239,11 @@ class DataCollatorForSupervisedDataset(object):
         pad_token_id = self.tokenizer.pad_token_id
         input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=pad_token_id)
         labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX)
-        return dict(
-            input_ids=input_ids,
-            labels=labels,
-            attention_mask=input_ids.ne(pad_token_id),
-        )
+        return {
+            'input_ids': input_ids,
+            'labels': labels,
+            'attention_mask': input_ids.ne(pad_token_id),
+        }
 
 
 def make_supervised_data_module(tokenizer, data_args) -> Dict:
@@ -267,7 +267,7 @@ def make_supervised_data_module(tokenizer, data_args) -> Dict:
                 model_size=data_args.model_size,
             )
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
-    return dict(train_dataset=train_dataset, eval_dataset=eval_dataset, data_collator=data_collator)
+    return {'train_dataset': train_dataset, 'eval_dataset': eval_dataset, 'data_collator': data_collator}
 
 
 # Copy tokenizer and config files to each checkpoint directory for self-contained inference
