@@ -32,10 +32,9 @@ cd Hy-Finetune
 uv sync
 ```
 
-Dataset loading, DeepSpeed, and FlashAttention are optional extras:
+DeepSpeed and FlashAttention are optional extras:
 
 ```bash
-uv sync --extra data
 uv sync --extra deepspeed
 uv sync --extra flash
 uv sync --extra deepspeed --extra flash
@@ -114,11 +113,7 @@ This writes `eval/fr_mos_natural.jsonl` from `madoss/fr-mos-final-data` validati
 
 ## Data Mixing
 
-Install the data extra before loading Hugging Face datasets:
-
-```bash
-uv sync --extra data
-```
+Hugging Face dataset support is included with the base dependencies.
 
 Build validation JSONL for dense training:
 
