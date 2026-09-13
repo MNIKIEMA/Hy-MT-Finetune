@@ -26,6 +26,9 @@ deepspeed = [
 flash = [
     "flash-attn",
 ]
+modal = [
+    "modal>=1.0",
+]
 
 [tool.uv]
 package = false

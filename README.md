@@ -13,6 +13,7 @@ pyproject.toml                   # uv project dependencies and optional extras
 train/train_dense.sh             # dense full fine-tuning launcher for 1.8B and 7B
 train/train_dense_lora.sh        # dense LoRA fine-tuning launcher for 1.8B and 7B
 train/single_gpu_finetune.sh     # single-GPU dense LoRA shortcut
+train/modal_single_gpu.py        # Modal single-GPU dense LoRA launcher
 train/train_dense.py             # dense training entrypoint
 train/train.sh                   # MoE full fine-tuning launcher
 train/train_lora.sh              # MoE LoRA fine-tuning launcher
@@ -86,6 +87,51 @@ Single-GPU dense LoRA shortcut:
 ```bash
 MODEL_PATH=/path/to/Hy-MT-1.5-or-Hy-MT2-1.8B bash train/single_gpu_finetune.sh
 ```
+
+### Single GPU on Modal
+
+The Modal launcher runs dense LoRA training on one `L4`, stores models,
+data, and checkpoints in persistent Modal Volumes, and downloads a Hugging Face
+model only when it is not already present in its model Volume.
+
+Install and authenticate the Modal client, then create a Hugging Face token
+secret (needed for gated and public Hub downloads alike):
+
+```bash
+uv sync --extra modal
+uv run modal setup
+uv run modal secret create huggingface-secret HF_TOKEN=your_huggingface_token
+```
+
+Upload a ShareGPT JSONL dataset to the data Volume. The remote path is relative
+to `/data` in the training container. Create the Volume first; `modal volume put`
+cannot create it:
+
+```bash
+uv run modal volume create hy-mt-training-data
+uv run modal volume put hy-mt-training-data data/example_data.jsonl train.jsonl
+```
+
+Launch training from the repository root:
+
+```bash
+uv run modal run train/modal_single_gpu.py \
+  --model-id tencent/HY-MT1.5-1.8B \
+  --model-size 1.8B \
+  --train-data-file train.jsonl \
+  --output-name hy-mt-1_8b-lora
+```
+
+The output is kept in the `hy-mt-training-output` Volume. Download it with:
+
+```bash
+uv run modal volume get hy-mt-training-output hy-mt-1_8b-lora ./hy-mt-1_8b-lora
+```
+
+For a 7B model, use `--model-size 7B`; an L4 may not have enough memory, so
+reduce the batch size or sequence length, or choose a larger GPU. To choose a
+different GPU, edit `gpu="L4"` in
+`train/modal_single_gpu.py`.
 
 7B dense LoRA fine-tuning:
 
