@@ -108,8 +108,8 @@ to `/data` in the training container. Create the Volume first; `modal volume put
 cannot create it:
 
 ```bash
-uv run modal volume create hy-mt-training-data
-uv run modal volume put hy-mt-training-data data/example_data.jsonl train.jsonl
+uv run modal volume create hy-mt-data
+uv run modal volume put hy-mt-data data/example_data.jsonl train.jsonl
 ```
 
 Launch training from the repository root:
@@ -130,8 +130,11 @@ uv run modal volume get hy-mt-training-output hy-mt-1_8b-lora ./hy-mt-1_8b-lora
 
 For a 7B model, use `--model-size 7B`; an L4 may not have enough memory, so
 reduce the batch size or sequence length, or choose a larger GPU. To choose a
-different GPU, edit `gpu="L4"` in
-`train/modal_single_gpu.py`.
+different GPU, set `MODAL_GPU` when launching, e.g.
+`MODAL_GPU=A100 uv run modal run train/modal_single_gpu.py ...`. Pass
+`--eval-data-file validation.jsonl` (uploaded to the data Volume) to evaluate
+every 200 steps, keep the best checkpoint, and stop early when validation loss
+stops improving.
 
 7B dense LoRA fine-tuning:
 

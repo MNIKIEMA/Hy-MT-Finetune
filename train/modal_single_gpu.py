@@ -2,6 +2,7 @@
 
 Example:
     modal run train/modal_single_gpu.py --model-id Tencent-Hunyuan/Hy-MT1.5-1.8B
+    MODAL_GPU=A100 modal run train/modal_single_gpu.py --model-id ... --eval-data-file validation.jsonl
 
 The model, input JSONL, and checkpoints live in Modal Volumes, so retries do
 not need to upload/download them again.  See the repository README for setup.
@@ -21,12 +22,14 @@ PROJECT_DIR = "/root/hy-finetune"
 DATA_DIR = "/data"
 MODEL_DIR = "/models"
 OUTPUT_DIR = "/outputs"
+# Read at import time, so set it when launching: MODAL_GPU=A100 modal run ...
+GPU = os.environ.get("MODAL_GPU", "L4")
 
 app = modal.App(APP_NAME)
 
 # These names are deliberately stable: models and checkpoints survive after a
 # function exits. `create_if_missing` makes first use a one-command setup.
-data_volume = modal.Volume.from_name("hy-mt-training-data", create_if_missing=True)
+data_volume = modal.Volume.from_name("hy-mt-data", create_if_missing=True)
 model_volume = modal.Volume.from_name("hy-mt-models", create_if_missing=True)
 output_volume = modal.Volume.from_name("hy-mt-training-output", create_if_missing=True)
 
@@ -67,7 +70,7 @@ def _model_directory(model_id: str) -> str:
 
 @app.function(
     image=image,
-    gpu="L4",
+    gpu=GPU,
     timeout=60 * 60 * 12,
     # Modal requires explicit ephemeral-disk requests to be at least 512 GiB.
     ephemeral_disk=512 * 1024,
@@ -82,6 +85,7 @@ def _model_directory(model_id: str) -> str:
 def train(
     model_id: str,
     train_data_file: str = "train.jsonl",
+    eval_data_file: str = "",
     model_size: str = "1.8B",
     output_name: str = "lora",
     max_steps: int = -1,
@@ -101,8 +105,13 @@ def train(
     if not data_path.is_file():
         raise FileNotFoundError(
             f"Training data was not found at {data_path}. "
-            "Upload it to the hy-mt-training-data Modal Volume first."
+            "Upload it to the hy-mt-data Modal Volume first."
         )
+    eval_path = None
+    if eval_data_file:
+        eval_path = Path(DATA_DIR) / _safe_relative_path(eval_data_file, "eval_data_file")
+        if not eval_path.is_file():
+            raise FileNotFoundError(f"Validation data was not found at {eval_path}.")
 
     output_path = Path(OUTPUT_DIR) / _safe_relative_path(output_name, "output_name")
     output_path.mkdir(parents=True, exist_ok=True)
@@ -153,6 +162,18 @@ def train(
         "--bf16",
         "--report_to", "none",
     ]
+    if eval_path:
+        # Evaluate at every save so the best checkpoint is kept and training stops
+        # early once validation loss stops improving.
+        command += [
+            "--eval_data_file", str(eval_path),
+            "--eval_strategy", "steps",
+            "--eval_steps", "200",
+            "--per_device_eval_batch_size", str(per_device_train_batch_size),
+            "--load_best_model_at_end",
+            "--metric_for_best_model", "eval_loss",
+            "--greater_is_better", "false",
+        ]
     if use_flash_attn:
         command.append("--use_flash_attn")
 
