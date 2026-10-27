@@ -20,7 +20,7 @@ train/train_lora.sh              # MoE LoRA fine-tuning launcher
 train/train.py                   # MoE training entrypoint
 train/merge_lora_weight.sh       # LoRA merge launcher
 train/merge_lora_weight.py       # LoRA merge entrypoint
-scripts/mix_translation_data.py   # fr/en -> mos weighted data mixer
+scripts/mix_translation_data.py  # mos/dyu/fra/eng bidirectional data mixer
 train/ds_zero*.json              # DeepSpeed configs for full fine-tuning launchers
 ```
 
@@ -147,77 +147,51 @@ Continue LoRA training from a previous adapter checkpoint:
 ADAPTER_PATH=dense_1_8b_lora_output/checkpoint-30 bash train/train_dense_lora.sh 1.8B
 ```
 
-For staged data mixing, keep `model_path` pointed at the original base model and set `ADAPTER_PATH` to the previous stage adapter checkpoint for stage 2 and stage 3.
-
-Build validation JSONL for dense training:
-
-```bash
-uv run python scripts/mix_translation_data.py validation
-```
-
-This writes `eval/fr_mos_natural.jsonl` from `madoss/fr-mos-final-data` validation and `eval/en_mos_flores_dev.jsonl` from FLORES+ `eng_Latn`/`mos_Latn` dev.
+To continue on a new data mix, keep `model_path` pointed at the original base model and set `ADAPTER_PATH` to the previous adapter checkpoint.
 
 ## Data Mixing
 
-Hugging Face dataset support is included with the base dependencies.
+The mixer builds bidirectional training data for Mooré (`mos`), Dyula (`dyu`),
+French (`fra`) and English (`eng`) from Hugging Face datasets:
 
-Build validation JSONL for dense training:
+```text
+madoss/moore-web-parallel        mos-fra
+madoss/faso-web-parallel         dyu-fra, dyu-eng, dyu-mos
+burkimbia/nllb-burkina-parallel  eng-mos, fra-mos, eng-dyu, fra-dyu, mos-dyu
+```
+
+FLORES+ is gated: accept its terms on the Hub and put `HF_TOKEN` in `.env`.
+
+Build validation JSONL:
 
 ```bash
 uv run python scripts/mix_translation_data.py validation
 ```
 
-This writes:
+This writes one file per direction, plus a small combined file for evaluation
+during training:
 
 ```text
-eval/fr_mos_natural.jsonl
-eval/en_mos_flores_dev.jsonl
+eval/flores_dev/<src>_<tgt>.jsonl            # 10 directions, FLORES+ dev
+eval/moore_web_validation/<src>_<tgt>.jsonl  # fra->mos and mos->fra
+eval/validation.jsonl                        # 100 rows per direction
 ```
 
-Use the public Hugging Face datasets for a single mixed-data run:
+Build the training mix:
 
 ```bash
 uv run python scripts/mix_translation_data.py mix \
-  --stage default \
-  --total-examples 100000 \
-  --output data/mixed_default.jsonl \
-  --fr-mos-original hf:madoss/fr-mos-final-data \
-  --fr-mos-roundtrip hf:madoss/fr-mos-final-data-backtranslated \
-  --en-mos hf:madoss/nllb-en-mos-fr \
-  --fr-mos-synthetic hf:madoss/nllb-en-mos-fr \
-  --dedupe
+  --total-examples 200000 \
+  --output data/mixed.jsonl
 ```
 
-This uses:
+The mixer drops moore-web validation/test and FLORES+ dev/devtest sentences
+from training, removes duplicates within each pair, and prints the usable pool
+and repeat factor of every source. Change a pair share with
+`--pair-weight dyu-mos=0.2`, and the share of rows translated into mos/dyu with
+`--into-local-ratio`.
 
-```text
-madoss/fr-mos-final-data: french -> moore
-madoss/fr-mos-final-data-backtranslated: french_backtranslated -> moore
-madoss/nllb-en-mos-fr: eng_Latn -> mos_Latn and eng_Latn_to_fra_Latn -> mos_Latn
-```
-
-For staged training, do not use `default`. Build and train stages in order:
-
-```text
-stage1 -> stage2 -> stage3
-```
-
-Example stage command:
-
-```bash
-uv run python scripts/mix_translation_data.py mix \
-  --stage stage1 \
-  --total-examples 100000 \
-  --output data/mixed_stage1.jsonl \
-  --fr-mos-original hf:madoss/fr-mos-final-data \
-  --fr-mos-roundtrip hf:madoss/fr-mos-final-data-backtranslated \
-  --en-mos hf:madoss/nllb-en-mos-fr \
-  --dedupe
-```
-
-The validation files stay the same for every stage. If a stage includes a bucket that is not provided, the mixer renormalizes the remaining provided buckets.
-
-See `data.md` for bucket weights, source dataset notes, and Hy-MT 1.x instruction options.
+See `data.md` for the pair weights, source filters, and evaluation plan.
 
 ## Config Guide
 
