@@ -30,4 +30,4 @@ averaged over the 10 directions; per-direction scores are in each file.
 
 | Date | Experiment | Model | Data | Epochs / LR | Best eval loss | FLORES+ devtest chrF++ (avg of 10) |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2026-10-27 | [HY-MT1.5-1.8B, mos/dyu/fra/eng bidirectional](2026-10-27-hy-mt15-1_8b-mos-dyu-bidirectional.md) | tencent/HY-MT1.5-1.8B + LoRA r64 | `mixed_v1.jsonl` (200k, 5 pairs) | 2 (early stopping) / 2e-4 | 3.082 (step 1000, running) | not scored |
+| 2026-10-27 | [HY-MT1.5-1.8B, mos/dyu/fra/eng bidirectional](2026-10-27-hy-mt15-1_8b-mos-dyu-bidirectional.md) | tencent/HY-MT1.5-1.8B + LoRA r64 | `mixed_v1.jsonl` (200k, 5 pairs) | 1.09 of 2 (early stopping) / 2e-4 | 3.029 (step 2,400) | 18.38 (base 15.96) |

@@ -196,6 +196,40 @@ and repeat factor of every source. Change a pair share with
 
 See `data.md` for the pair weights, source filters, and evaluation plan.
 
+## Evaluation on Modal
+
+`train/modal_vllm_server.py` serves the base model as `hy-mt` and each LoRA
+adapter under its own name with vLLM, behind an OpenAI-compatible API. It
+reads the base model from the `hy-mt-models` Volume and adapters from
+`hy-mt-training-output`, and scales to zero after 10 idle minutes.
+
+Create the API key secret once (also put `VLLM_API_KEY` in `.env` for the
+client), then deploy:
+
+```bash
+uv run modal secret create hy-mt-vllm VLLM_API_KEY=<key>
+HY_MT_LORAS="mos-dyu=hy-mt1_5-1_8b-mos-dyu-lora/checkpoint-2400" \
+  MODAL_GPU=A100 uv run modal deploy train/modal_vllm_server.py
+```
+
+`HY_MT_LORAS` takes `name=path,...` with paths relative to the output Volume.
+Score the base model against the adapter on FLORES+ `devtest` (10
+directions) and moore-web `test` (fra↔mos):
+
+```bash
+uv run --extra eval python scripts/evaluate_translation.py \
+  --base-url https://<workspace>--hy-mt-vllm-serve.<region>.modal.run/v1 \
+  --models hy-mt mos-dyu \
+  --output-dir eval/results/run1
+```
+
+It writes one prediction JSONL per model, set and direction, and
+`summary.md` / `summary.json` with chrF++, BLEU, empty outputs and the length
+ratio. Existing prediction files are reused; pass `--overwrite` to redo them
+and `--max-examples 20` for a quick check. Prompts use the same instruction
+(`--instruction-version v1` for HY-MT1.5) and language names as the training
+mix.
+
 ## Config Guide
 
 The dense launchers select model-specific defaults:

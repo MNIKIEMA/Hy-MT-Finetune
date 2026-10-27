@@ -13,6 +13,7 @@ comparison table in its README.
 
 - [`data-mixing.md`](data-mixing.md) -- `scripts/mix_translation_data.py`, `data.md` (bidirectional mos/dyu/fra/eng mix, source filters, decontamination, validation sets).
 - [`training.md`](training.md) -- `train/train_dense.py`, `train/modal_single_gpu.py` (dense LoRA training, Modal launcher, chat template and loss mask).
+- [`evaluation.md`](evaluation.md) -- `scripts/evaluate_translation.py`, `train/modal_vllm_server.py` (vLLM on Modal, chrF++/BLEU per direction on FLORES+ and moore-web).
 
 Add a new logbook when a new module or workflow is added, not for each run.
 

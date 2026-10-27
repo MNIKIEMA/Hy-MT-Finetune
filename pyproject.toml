@@ -29,6 +29,10 @@ flash = [
 modal = [
     "modal>=1.0",
 ]
+eval = [
+    "openai>=1.0",
+    "sacrebleu>=2.4",
+]
 
 [tool.uv]
 package = false
