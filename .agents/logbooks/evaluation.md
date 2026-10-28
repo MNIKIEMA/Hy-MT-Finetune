@@ -15,7 +15,7 @@ the training prompt, and scores chrF++ / BLEU per direction.
   rejects a direction where under half of the translations are in the
   target language (dyu accepts `dyu_Latn` or `bam_Latn`), and it checks
   every sentence again when scoring. Submitters don't compute it.
-- Submitted file (local): `eval/submissions/hy-mt1_5-1_8b-mos-dyu-lora-ckpt2400.csv`,
+- Submission file (local): `eval/submissions/hy-mt1_5-1_8b-mos-dyu-lora-ckpt2400.csv`,
   fra↔mos from Bouquet and fra↔dyu from FLORES+, repetition penalty 1.05.
 
 ## 2026-10-28 (repetition penalty)
