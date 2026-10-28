@@ -223,6 +223,9 @@ uv run --extra eval python scripts/evaluate_translation.py \
   --output-dir eval/results/run1
 ```
 
+`--sets bouquet` scores Bouquet `test` (fra↔mos, eng↔mos, sentence and
+paragraph level); give it its own `--output-dir`.
+
 It writes one prediction JSONL per model, set and direction, and
 `summary.md` / `summary.json` with chrF++, BLEU, empty outputs and the length
 ratio. Existing prediction files are reused; pass `--overwrite` to redo them

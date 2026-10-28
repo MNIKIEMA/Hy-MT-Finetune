@@ -5,6 +5,19 @@
 FLORES+ `devtest` (10 directions) and moore-web `test` (fra↔mos) to it with
 the training prompt, and scores chrF++ / BLEU per direction.
 
+## 2026-10-28 (Bouquet)
+
+- **`--sets bouquet`** reads `facebook/bouquet`
+  `benchmark_data/<level>/<split>/<src>-<tgt>.parquet` for fra↔mos and
+  eng↔mos (854 sentences, 198 paragraphs per direction in `test`) and keeps
+  `domain` in the predictions. Paragraphs get `--paragraph-max-tokens` 384.
+- References are scored as published. `mt-training` normalizes them
+  (’ « » → ' ") because NLLB has no tokens for those characters; Hy-MT has
+  them, so scores are not directly comparable with `mt-training` Bouquet
+  numbers.
+- Run Bouquet into its own `--output-dir`: `summary.md` only covers the sets
+  of one invocation and would replace an earlier summary in the same folder.
+
 ## 2026-10-27 (first server and smoke eval)
 
 - **vLLM 0.31.0 runs HunYuanDenseV1 through its Transformers backend**

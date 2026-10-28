@@ -118,6 +118,30 @@ length ratio of output to reference.
 | fra→mos | 13.04 (1.86), 1.39 | 30.32 (8.93), 1.12 | +17.28 |
 | mos→fra | 15.55 (2.32), 0.89 | 34.67 (17.41), 0.91 | +19.12 |
 
+**Bouquet `test`** (`facebook/bouquet`, references as published; sentences
+256 new tokens, paragraphs 384). Predictions in
+`eval/results/run1-checkpoint-2400-bouquet/`.
+
+| Direction | Level | Rows | Base | checkpoint-2400 | Δ chrF++ |
+| --- | --- | ---: | --- | --- | ---: |
+| fra→mos | sentence | 854 | 10.42 (1.98), 1.28 | 25.57 (7.08), 1.06 | +15.15 |
+| mos→fra | sentence | 854 | 14.04 (2.29), 1.03 | 27.45 (8.34), 0.99 | +13.41 |
+| eng→mos | sentence | 854 | 11.10 (2.35), 1.14 | 21.94 (4.71), 1.25 | +10.84 |
+| mos→eng | sentence | 854 | 15.81 (2.47), 1.21 | 25.12 (8.43), 0.88 | +9.31 |
+| fra→mos | paragraph | 198 | 12.60 (2.78), 1.23 | 26.32 (7.96), 1.01 | +13.72 |
+| mos→fra | paragraph | 198 | 16.45 (4.01), 0.84 | 31.27 (10.32), 0.92 | +14.82 |
+| eng→mos | paragraph | 198 | 13.36 (3.04), 1.11 | 18.78 (5.06), 0.74 | +5.42 |
+| mos→eng | paragraph | 198 | 19.34 (4.16), 0.95 | 26.87 (8.50), 0.73 | +7.53 |
+
+Gains are even across Bouquet domains (sentence fra→mos: 22.1 how-to to
+27.5 narration/reflection; base 9.5-12.0). Looping outputs: eng→mos 44 of
+854 sentences and 55 of 198 paragraphs; fra→mos 12 and 30; out of Mooré 1-3.
+
+For reference, the NLLB-600M fr→mos models in `mt-training` score 30.87
+(FrMos-bt-v1) and 30.82 (BIA-CRCL) chrF++ on Bouquet fra→mos sentences, 35.44
+and 34.40 on paragraphs, but with CT2 int8, beam 4, `no_repeat_ngram_size=3`
+and normalized references (’ « » → ' "), so not directly comparable.
+
 **Repetition** (checkpoint-2400; "looping" = output of 8+ words with under
 half of them distinct): dyu→mos 197 of 1,012 looping and 31.5% of outputs
 over 1.5× the reference length; mos→dyu 117 (18.4%); eng→mos 99 (13.7%);
@@ -147,6 +171,15 @@ Directions out of mos/dyu into fra/eng loop least (12-30).
 - **Repetition loops are the main failure**, worst when generating between
   the two local languages (dyu→mos 19% of rows loop). dyu-mos training rows
   were repeated 2.6-3.3x and come from long Council sentences.
+
+- **Bouquet confirms the Mooré gains out of domain** (+9 to +15 chrF++ on
+  sentences, every domain), but the model is ~5 chrF++ behind dedicated
+  NLLB-600M fr→mos models on sentences and ~9 on paragraphs (different
+  decoding and reference normalization, see above).
+- **Paragraphs into and out of English come out too short** (eng→mos length
+  ratio 0.74, mos→eng 0.73) and eng→mos paragraphs loop (55 of 198): training
+  rows are single sentences, so the model drops or repeats content in long
+  inputs.
 
 ## Issues found
 
