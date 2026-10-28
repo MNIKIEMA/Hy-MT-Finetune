@@ -6,6 +6,18 @@ three Hub datasets; `validation` builds FLORES+ dev and moore-web validation
 files per direction. Weights, filters and the evaluation plan are in `data.md`
 (gitignored, local only).
 
+## 2026-10-28 (Dyula spelling variants)
+
+- **All training Dyula is in the standard Manding alphabet** (ɛ, ɔ, ɲ;
+  é/è/ê 0.1‰, ô 0.0‰ of letters), while FLORES+ Dyula is written in a
+  French-style spelling (é/è for ɛ, ô for ɔ, gn for ɲ, dj for j). The model
+  never sees the second form, so it misreads FLORES+ sources and writes
+  standard spelling against FLORES+ references
+  ([evaluation logbook](evaluation.md)).
+- Idea for the next mix: add rows whose Dyula *source* is converted to the
+  French-style spelling (keep standard spelling on the target side), so the
+  model reads both. Not implemented yet.
+
 ## 2026-10-27 (domain makeup of the 200k mix)
 
 - **The mix is mostly religious and government text.** Measured from `trg_url`

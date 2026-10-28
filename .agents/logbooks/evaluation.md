@@ -5,6 +5,39 @@
 FLORES+ `devtest` (10 directions) and moore-web `test` (fra↔mos) to it with
 the training prompt, and scores chrF++ / BLEU per direction.
 
+## 2026-10-28 (dyu→mos loops and FLORES+ Dyula spelling)
+
+- **The dyu→mos loops are not memorized training phrases.** Of the 197
+  looping outputs (FLORES+ `devtest`, checkpoint-2400, penalty 1.05) almost
+  every one repeats a different phrase: the most frequent repeated trigram
+  ("n kɩt tɩ", "zĩig ning sẽn") occurs in 4 outputs, most in 1, and no
+  Council-of-Ministers formulas show up. What repeats is common Mooré glue
+  ("sẽn na n", "a na n") or the model's own last clause, until
+  `max_tokens`.
+- **The loops follow a source the model did not understand**: the output
+  starts as fluent but unrelated Mooré (an athletics sentence becomes
+  soldiers and war; a USOC sentence becomes "our country and its people")
+  and then cycles. Many such sources are in FLORES+'s French-style Dyula
+  spelling ("diabéti", "sôrô", "gnanaman").
+- **FLORES+ Dyula is the same language in a different spelling, not rarer
+  words.** Letters per thousand, FLORES+ `devtest` vs the 62,965 Dyula
+  targets of `mixed_v1`: ɛ 1.4 vs 44.3, ɔ 2.4 vs 42.0, ɲ 0.3 vs 8.6,
+  é/è/ê 45.7 vs 0.1, ô 28.4 vs 0.0. Word counts (train / FLORES+):
+  bɛ 558 / 5 vs bé 3 / 169; dɔ 3,073 / 14 vs dô 1 / 93; sɔrɔ 3,623 / 8 vs
+  sôrô 0 / 54; jamana 7,075 / 20 vs djamana 0 / 64. Words without these
+  letters match ("ka" 1,043 in FLORES+). 45.2% of FLORES+ Dyula word tokens
+  never occur in the training Dyula, mostly from spelling (not separated
+  from real vocabulary differences).
+- Consequences: into-dyu FLORES+ chrF++ is penalized even for correct
+  standard-spelling output (fra→dyu, eng→dyu flat); out of dyu the model
+  half-reads the source (loops, hallucination); the Burkimbia leaderboard
+  scores fra-dyu on this set too. Options: map our Dyula output to the
+  FLORES+ spelling before a leaderboard submission (ɛ→è/é, ɔ→ô, ɲ→gn,
+  j→dj; ɛ→é vs è needs rules, check on FLORES+ `dev` first), and train on
+  spelling variants (see the data-mixing logbook). mos→dyu (117 loops) and
+  Bouquet eng→mos paragraphs (55) are not yet inspected; their sources are
+  not in this spelling, so the cause may differ.
+
 ## 2026-10-28 (Burkimbia leaderboard submission)
 
 - The Burkimbia MT leaderboard scores Mooré on Bouquet sentence-level
