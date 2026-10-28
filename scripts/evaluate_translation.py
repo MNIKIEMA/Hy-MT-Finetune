@@ -101,6 +101,7 @@ async def translate(
     model: str,
     messages: list[dict[str, str]],
     max_tokens: int,
+    repetition_penalty: float,
 ) -> str:
     async with semaphore:
         for attempt in range(3):
@@ -110,7 +111,7 @@ async def translate(
                     messages=messages,
                     temperature=0.0,
                     max_tokens=max_tokens,
-                    extra_body={"repetition_penalty": 1.05},
+                    extra_body={"repetition_penalty": repetition_penalty},
                 )
                 return (response.choices[0].message.content or "").strip()
             except Exception as exc:  # retry transient server/network errors
@@ -162,6 +163,7 @@ async def run_direction(
                 model,
                 prompt_messages(row["src_text"], source_lang, target_lang, args),
                 max_tokens,
+                args.repetition_penalty,
             )
             for row in rows
         ]
@@ -264,6 +266,7 @@ def parse_args() -> argparse.Namespace:
         default=384,
         help="Bouquet paragraph references reach ~270 Mooré tokens.",
     )
+    parser.add_argument("--repetition-penalty", type=float, default=1.05)
     parser.add_argument("--concurrency", type=int, default=64)
     parser.add_argument("--max-examples", type=int, help="Rows per direction, for a quick check.")
     parser.add_argument("--overwrite", action="store_true", help="Re-translate even if predictions exist.")

@@ -148,6 +148,27 @@ over 1.5× the reference length; mos→dyu 117 (18.4%); eng→mos 99 (13.7%);
 eng→dyu 84; fra→dyu 82; moore-web fra→mos 55 of 2,573 (19.2% over 1.5×).
 Directions out of mos/dyu into fra/eng loop least (12-30).
 
+**Repetition penalty 1.15** (checkpoint-2400 only, everything else as
+above; `eval/results/run1-checkpoint-2400-rp1.15[-bouquet]/`). chrF++ at
+1.05 → 1.15, looping outputs 1.05 → 1.15.
+
+| Set | Direction | chrF++ | Δ | Looping |
+| --- | --- | --- | ---: | --- |
+| FLORES+ | dyu→mos | 15.12 → 16.57 | +1.45 | 197 → 14 |
+| FLORES+ | mos→dyu | 13.72 → 15.07 | +1.35 | 117 → 2 |
+| FLORES+ | fra→dyu | 14.69 → 15.66 | +0.97 | 82 → 1 |
+| FLORES+ | eng→dyu | 13.01 → 13.94 | +0.93 | 84 → 0 |
+| FLORES+ | eng→mos | 17.69 → 17.86 | +0.17 | 99 → 1 |
+| FLORES+ | fra→mos | 20.89 → 20.43 | −0.46 | 36 → 1 |
+| FLORES+ | into fra/eng (4) | 22.17 → 21.85 avg | −0.32 | 68 → 3 |
+| FLORES+ | **average** | **18.38 → 18.69** | **+0.31** | |
+| moore-web | fra→mos | 30.32 → 28.16 | −2.16 | 55 → 6 |
+| moore-web | mos→fra | 34.67 → 33.33 | −1.34 | 16 → 1 |
+| Bouquet sentence | average (4) | 25.02 → 24.14 | −0.88 | 58 → 3 |
+| Bouquet paragraph | average (4) | 25.81 → 24.53 | −1.28 | 90 → 8 |
+
+BLEU drops almost everywhere (e.g. moore-web mos→fra 17.41 → 14.86).
+
 ## Observations
 
 - **Eval loss is flat from step ~1,000 to the end of epoch 1** (3.03-3.13,
@@ -181,6 +202,17 @@ Directions out of mos/dyu into fra/eng loop least (12-30).
   rows are single sentences, so the model drops or repeats content in long
   inputs.
 
+- **Repetition penalty 1.15 removes the loops but is not a better default.**
+  It helps only where the model loops and is weak (FLORES+ into Dyula and
+  between mos and dyu, +0.9 to +1.5 chrF++), and costs 1-2 chrF++ and more
+  BLEU where it already translates well (moore-web, Bouquet, into
+  fra/eng): the penalty also punishes the legitimate repeats of articles
+  and function words. Outputs into fra/eng get longer (more over 1.5× the
+  reference). So most of the dyu→mos / mos→dyu gap is the model, not
+  decoding; fix loops in training (less repeated dyu-mos rows) or with
+  `no_repeat_ngram_size`-style constraints, and keep 1.05 for reported
+  scores.
+
 ## Issues found
 
 - First launch failed on `--load_best_model_at_end` before training
@@ -188,8 +220,8 @@ Directions out of mos/dyu into fra/eng loop least (12-30).
 
 ## Next
 
-- Re-score with a stronger `repetition_penalty` (e.g. 1.15) to see how much
-  of the dyu→mos / mos→dyu gap is decoding.
+- ~~Re-score with `repetition_penalty` 1.15~~ done: loops gone, scores mixed
+  (see above).
 - Build a Dyula test set in standard orthography (e.g. held-out faso-web
   sentences) so into-dyu progress is measurable.
 - If the checkpoints are close: try lr 1e-4, and a mix with religious text

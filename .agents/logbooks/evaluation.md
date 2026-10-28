@@ -5,6 +5,28 @@
 FLORES+ `devtest` (10 directions) and moore-web `test` (fra↔mos) to it with
 the training prompt, and scores chrF++ / BLEU per direction.
 
+## 2026-10-28 (Burkimbia leaderboard submission)
+
+- The Burkimbia MT leaderboard scores Mooré on Bouquet sentence-level
+  `test` and Dyula on FLORES+ `devtest`. Its CSV has `direction`
+  (`fra-mos`), `id` (Bouquet `uniq_id`, FLORES+ `id`) and `translation`;
+  the predictions of `evaluate_translation.py` map onto it directly.
+- **The leaderboard runs language ID itself** (GlotLID): at upload it
+  rejects a direction where under half of the translations are in the
+  target language (dyu accepts `dyu_Latn` or `bam_Latn`), and it checks
+  every sentence again when scoring. Submitters don't compute it.
+- Submitted file (local): `eval/submissions/hy-mt1_5-1_8b-mos-dyu-lora-ckpt2400.csv`,
+  fra↔mos from Bouquet and fra↔dyu from FLORES+, repetition penalty 1.05.
+
+## 2026-10-28 (repetition penalty)
+
+- **`--repetition-penalty`** (default 1.05). At 1.15 looping outputs drop
+  from hundreds to a handful, but chrF++ only rises where the model was
+  looping (FLORES+ into dyu, dyu↔mos, +0.9 to +1.5) and falls 1-2 on
+  moore-web and Bouquet; BLEU falls almost everywhere. Keep 1.05 for
+  reported scores and compare runs at the same penalty. Details in the
+  [experiment](../experiments/2026-10-27-hy-mt15-1_8b-mos-dyu-bidirectional.md).
+
 ## 2026-10-28 (Bouquet)
 
 - **`--sets bouquet`** reads `facebook/bouquet`
