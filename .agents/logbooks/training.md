@@ -16,8 +16,8 @@ on one Modal GPU with models, data and outputs in Modal Volumes.
   download, a name with other characters than letters, digits, `.`, `_`, `-`
   raises `ValueError`. The check runs in the GPU container, so it waits for a
   GPU first (an L4 test waited >10 min for capacity; A100 was free).
-- Checked on Modal: merged `fra-mos-mix-lr2e-4/checkpoint-800` (3.7 GB of
-  bf16 safetensors plus tokenizer/config files), re-merge refused, and 2
+- Checked on Modal: merged `fra-mos-mix-lr2e-4/checkpoint-800` (bf16
+  safetensors plus tokenizer/config files), re-merge refused, and 2
   training steps from the merged model on an A100 (fresh LoRA r64, no
   download). Test folders deleted afterwards.
 
