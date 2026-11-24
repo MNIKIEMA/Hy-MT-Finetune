@@ -5,6 +5,13 @@
 FLORES+ `devtest` (10 directions) and moore-web `test` (fra↔mos) to it with
 the training prompt, and scores chrF++ / BLEU per direction.
 
+## 2026-11-24 (API key)
+
+- `evaluate_translation.py` reads `VLLM_API_KEY` from the environment only
+  and `uv run` does not load `.env` by default: run it with
+  `uv run --env-file .env ...`, or every request is rejected.
+- `--sets bouquet` always scores eng↔mos too; there is no direction filter.
+
 ## 2026-10-28 (dyu→mos loops and FLORES+ Dyula spelling)
 
 - **The dyu→mos loops are not memorized training phrases.** Of the 197
