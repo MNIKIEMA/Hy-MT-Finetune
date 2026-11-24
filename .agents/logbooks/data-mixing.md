@@ -6,6 +6,22 @@ three Hub datasets; `validation` builds FLORES+ dev and moore-web validation
 files per direction. Weights, filters and the evaluation plan are in `data.md`
 (gitignored, local only).
 
+## 2026-11-24 (`convert`: the TranslateGemma French↔Mooré mix)
+
+- **Goal**: compare HY-MT1.5-1.8B and TranslateGemma 4B on the same data
+  (plan in `translategemma-finetune/.agents/logbooks/2026-10-29-plan-fair-hy-mt-comparison.md`).
+  `convert` writes a split of `madoss/translategemma-fra-mos-mix` (revision
+  `ca1409b`) as v1 ShareGPT rows: same rows, order and direction, codes
+  `fr`/`mos_Latn` mapped to French/Mossi.
+- `fra_mos_mix_train_v1.jsonl`: 50,000 rows (fra→mos 29,940, mos→fra 20,060).
+  `fra_mos_mix_validation_v1.jsonl`: 1,000 rows, 500 moore-web validation
+  pairs per direction (TranslateGemma's validation set, not FLORES). Both
+  uploaded to the `hy-mt-data` volume.
+- **Not identical to the fra↔mos slice of `mixed_v1.jsonl`**: same direction
+  counts, but 1,760 of 50,000 rows differ (48,240 match exactly). The
+  TranslateGemma mix also holds out BOUQuET dev/test, which drops a few pool
+  rows and shifts the seeded sampling.
+
 ## 2026-10-28 (Dyula spelling variants)
 
 - **All training Dyula is in the standard Manding alphabet** (ɛ, ɔ, ɲ;

@@ -54,6 +54,10 @@ PAIR_WEIGHTS = {
 }
 
 MOORE_WEB = "madoss/moore-web-parallel"
+# The French<->Mooré mix of translategemma-finetune, for training both models on the same rows.
+TRANSLATEGEMMA_MIX = "madoss/translategemma-fra-mos-mix"
+# Its language codes (TranslateGemma's) to ours.
+TRANSLATEGEMMA_CODES = {"fr": "fra", "mos_Latn": "mos"}
 FASO_WEB = "madoss/faso-web-parallel"
 NLLB_BURKINA = "burkimbia/nllb-burkina-parallel"
 
@@ -253,6 +257,14 @@ def add_validation_args(parser: argparse.ArgumentParser) -> None:
     add_common_instruction_args(parser)
 
 
+def add_convert_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--dataset", default=TRANSLATEGEMMA_MIX)
+    parser.add_argument("--revision", help="Dataset revision (commit) to read.")
+    parser.add_argument("--split", required=True, help="e.g. train or validation.")
+    parser.add_argument("--output", required=True, type=Path)
+    add_common_instruction_args(parser)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Build bidirectional mos/dyu/fra/eng ShareGPT-style JSONL from Hugging Face datasets."
@@ -265,16 +277,24 @@ def parse_args() -> argparse.Namespace:
     validation_parser = subparsers.add_parser("validation", help="Build validation JSONL.")
     add_validation_args(validation_parser)
 
+    convert_parser = subparsers.add_parser(
+        "convert",
+        help="Convert a split of the translategemma-finetune mix, keeping its rows and directions.",
+    )
+    add_convert_args(convert_parser)
+
     return parser.parse_args()
 
 
-def read_hf_dataset(name: str, split: str = "train", config: str | None = None) -> list[dict[str, Any]]:
+def read_hf_dataset(
+    name: str, split: str = "train", config: str | None = None, revision: str | None = None
+) -> list[dict[str, Any]]:
     from datasets import load_dataset
 
     if config:
-        dataset = load_dataset(name, config, split=split)
+        dataset = load_dataset(name, config, split=split, revision=revision)
     else:
-        dataset = load_dataset(name, split=split)
+        dataset = load_dataset(name, split=split, revision=revision)
     return [dict(row) for row in dataset]
 
 
@@ -577,10 +597,35 @@ def run_validation(args: argparse.Namespace) -> None:
     print(f"Wrote {count} examples to {path}")
 
 
+def run_convert(args: argparse.Namespace) -> None:
+    """Same rows, order and direction as the source split; only the prompt format changes."""
+    instruction = instruction_for_version(args.instruction_version, args.instruction)
+    directions = Counter()
+    examples = []
+    for row in read_hf_dataset(args.dataset, split=args.split, revision=args.revision):
+        source_lang = TRANSLATEGEMMA_CODES[row["source_lang_code"]]
+        target_lang = TRANSLATEGEMMA_CODES[row["target_lang_code"]]
+        source_text, target_text = clean_text(row["source_text"]), clean_text(row["target_text"])
+        if not source_text or not target_text:
+            raise ValueError(f"Empty text in {args.dataset} {args.split}: {row}")
+        directions[f"{source_lang}->{target_lang}"] += 1
+        examples.append(
+            translation_row(
+                source_lang, target_lang, source_text, target_text, instruction, args.instruction_version
+            )
+        )
+    write_jsonl(args.output, examples)
+    for direction, count in sorted(directions.items()):
+        print(f"  {direction}: {count}")
+    print(f"Wrote {len(examples)} examples to {args.output}")
+
+
 def main() -> None:
     args = parse_args()
     if args.command == "validation":
         run_validation(args)
+    elif args.command == "convert":
+        run_convert(args)
     else:
         run_mix(args)
 

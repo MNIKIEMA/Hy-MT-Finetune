@@ -196,6 +196,18 @@ and repeat factor of every source. Change a pair share with
 
 See `data.md` for the pair weights, source filters, and evaluation plan.
 
+Convert the French↔Mooré mix of `translategemma-finetune`
+(`madoss/translategemma-fra-mos-mix`) to train on exactly the same rows,
+directions and validation set as TranslateGemma:
+
+```bash
+for split in train validation; do
+  uv run python scripts/mix_translation_data.py convert --split $split \
+    --revision ca1409b5870bc661782ce17dcd200c0796ce9b0b --instruction-version v1 \
+    --output data/fra_mos_mix_${split}_v1.jsonl
+done
+```
+
 ## Evaluation on Modal
 
 `train/modal_vllm_server.py` serves the base model as `hy-mt` and each LoRA
