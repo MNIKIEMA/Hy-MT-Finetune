@@ -96,6 +96,7 @@ def train(
     learning_rate: float = 2e-4,
     warmup_steps: int = 10,
     use_flash_attn: bool = False,
+    data_format: str = "chat",
 ) -> str:
     """Fine-tune a Hub model and return its checkpoint directory on the output Volume."""
     if model_size not in {"0.5B", "1.8B", "4B", "7B"}:
@@ -133,6 +134,7 @@ def train(
         f"{PROJECT_DIR}/train/train_dense.py",
         "--do_train",
         "--model_size", model_size,
+        "--data_format", data_format,
         "--model_name_or_path", str(model_path),
         "--tokenizer_name_or_path", str(model_path),
         "--train_data_file", str(data_path),

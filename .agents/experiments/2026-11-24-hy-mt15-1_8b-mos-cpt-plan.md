@@ -32,10 +32,10 @@ candidate differs from it only by the CPT stage.
 
 ## Code to add first
 
-- **Plain-text rows in `train/train_dense.py`**: a dataset mode for
-  `{"text": ...}` rows with loss on every token, documents joined with
-  `<eos>` and packed into fixed-length blocks (512 or 1024 tokens). Today
-  every row must be `messages` and only the reply gets loss.
+- ~~**Plain-text rows in `train/train_dense.py`**~~ Done 2026-11-24:
+  `--data_format text` (launcher `--data-format text`), documents packed into
+  `max_seq_length` blocks with bos/eos, loss on every token
+  ([training logbook](../logbooks/training.md)).
 - **Launcher**: pass the mode and the block size through
   `train/modal_single_gpu.py`; start SFT from a CPT output (merged weights or
   adapter).

@@ -4,6 +4,25 @@
 JSONL, masking the loss to the assistant reply. `modal_single_gpu.py` runs it
 on one Modal GPU with models, data and outputs in Modal Volumes.
 
+## 2026-11-24 (plain-text mode for continued pretraining)
+
+- **`--data_format text`** (launcher `--data-format text`): `PackedTextDataset`
+  reads `{"text": ...}` rows, wraps each document as
+  `<｜hy_begin▁of▁sentence｜> text <｜hy_place▁holder▁no▁2｜>` (the bos/eos
+  the chat template uses; the tokenizer adds no bos by itself), concatenates
+  them in file order and cuts `max_seq_length` blocks; the last partial block
+  is dropped, empty documents are skipped. Labels = inputs, no attention mask
+  between documents in a block (usual packed pretraining).
+- The pad token (`<｜hy_▁pad▁｜>`, 120002) differs from eos (120020), so the
+  collator's `input_ids != pad` attention mask keeps document ends visible.
+- Checked on CPU with a 2-layer random HunYuanDenseV1 and the real tokenizer:
+  text mode trains, evaluates and saves; chat mode unchanged. Chat `eval_loss`
+  is `nan` when `max_seq_length` cuts every reply off (64 tokens in the test),
+  fine at 512.
+- `train_dense.py` run by hand needs `--lr_scheduler_type cosine_with_min_lr`
+  (the launcher passes it): it always sets `min_lr_rate`, which other
+  schedulers reject.
+
 ## 2026-10-27 (Modal launcher on A100)
 
 - **The Modal resources are in the `nikiemamahamadi01` workspace**, not in

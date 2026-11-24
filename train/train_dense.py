@@ -115,6 +115,12 @@ class DataArguments:
         metadata={"help": "The max sequence length of the model inputs after tokenization."}
     )
     use_dummy_data: bool = field(default=False, metadata={"help": "Use dummy data."})
+    data_format: Literal["chat", "text"] = field(
+        default="chat",
+        metadata={"help": "chat: `messages` rows, loss on the assistant reply. text: plain-text rows "
+                  "(continued pretraining), packed into max_seq_length blocks, loss on every token."}
+    )
+    text_field: str = field(default="text", metadata={"help": "Column holding the document in text rows."})
 
 
 @dataclass
@@ -227,6 +233,58 @@ class SFTDataset(Dataset):
         return model_inputs
 
 
+class PackedTextDataset(Dataset):
+    """Plain-text documents for continued pretraining.
+
+    Each document becomes ``<bos> text <eos>`` (the markers the chat format uses), the documents
+    are concatenated in file order and cut into blocks of ``max_seq_length`` tokens; the last
+    partial block is dropped. Every token gets loss. Attention is not masked between documents
+    that share a block, as is usual for packed pretraining.
+    """
+
+    def __init__(self, data_file, tokenizer, max_seq_length=4096, text_field="text"):
+        if data_file is None:
+            raise ValueError("data_file must be provided unless --use_dummy_data is set.")
+        if tokenizer.bos_token_id is None or tokenizer.eos_token_id is None:
+            raise ValueError("Packing plain text needs the tokenizer's bos and eos tokens.")
+        self.max_seq_length = max_seq_length
+        tokens = []
+        documents = 0
+        logging.info('Loading text data: {}'.format(data_file))
+        with open(data_file, 'r', encoding='utf8') as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                text = json.loads(line)[text_field]
+                if not text or not text.strip():
+                    continue
+                tokens.append(tokenizer.bos_token_id)
+                tokens.extend(tokenizer(text, add_special_tokens=False)["input_ids"])
+                tokens.append(tokenizer.eos_token_id)
+                documents += 1
+        block_count = len(tokens) // max_seq_length
+        if block_count == 0:
+            raise ValueError(
+                f"{data_file} has {len(tokens)} tokens, fewer than one {max_seq_length}-token block."
+            )
+        self.blocks = torch.tensor(tokens[:block_count * max_seq_length], dtype=torch.long).view(
+            block_count, max_seq_length
+        )
+        if is_rank_zero():
+            print(
+                f"{data_file}: {documents} documents, {len(tokens)} tokens, {block_count} blocks of "
+                f"{max_seq_length} ({len(tokens) - block_count * max_seq_length} tokens dropped)",
+                flush=True,
+            )
+
+    def __len__(self):
+        return self.blocks.shape[0]
+
+    def __getitem__(self, index):
+        block = self.blocks[index]
+        return {"input_ids": block, "labels": block.clone()}
+
+
 @dataclass
 class DataCollatorForSupervisedDataset(object):
     """Collate examples for supervised fine-tuning."""
@@ -252,20 +310,23 @@ def make_supervised_data_module(tokenizer, data_args) -> Dict:
         train_dataset = DummyDataset(tokenizer, data_args.max_seq_length)
         eval_dataset = DummyDataset(tokenizer, data_args.max_seq_length) if data_args.eval_data_file else None
     else:
-        train_dataset = SFTDataset(
-            tokenizer=tokenizer,
-            data_file=data_args.train_data_file,
-            max_seq_length=data_args.max_seq_length,
-            model_size=data_args.model_size,
-        )
-        eval_dataset = None
-        if data_args.eval_data_file:
-            eval_dataset = SFTDataset(
+        def load(data_file):
+            if data_args.data_format == "text":
+                return PackedTextDataset(
+                    data_file=data_file,
+                    tokenizer=tokenizer,
+                    max_seq_length=data_args.max_seq_length,
+                    text_field=data_args.text_field,
+                )
+            return SFTDataset(
                 tokenizer=tokenizer,
-                data_file=data_args.eval_data_file,
+                data_file=data_file,
                 max_seq_length=data_args.max_seq_length,
                 model_size=data_args.model_size,
             )
+
+        train_dataset = load(data_args.train_data_file)
+        eval_dataset = load(data_args.eval_data_file) if data_args.eval_data_file else None
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
     return {'train_dataset': train_dataset, 'eval_dataset': eval_dataset, 'data_collator': data_collator}
 

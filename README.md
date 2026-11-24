@@ -136,6 +136,11 @@ different GPU, set `MODAL_GPU` when launching, e.g.
 every 200 steps, keep the best checkpoint, and stop early when validation loss
 stops improving.
 
+For continued pretraining on plain text, pass `--data-format text`: rows are
+`{"text": "..."}` documents (any other fields are ignored), each wrapped in the
+model's begin and end tokens, concatenated and cut into `--max-seq-length`
+blocks, with loss on every token. The eval file uses the same format.
+
 7B dense LoRA fine-tuning:
 
 ```bash
