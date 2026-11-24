@@ -64,7 +64,16 @@ def _safe_relative_path(value: str, label: str) -> Path:
 
 
 def _model_directory(model_id: str) -> str:
-    """Map a Hub repo ID to a stable, filesystem-safe volume directory."""
+    """Map a Hub repo ID to a stable, filesystem-safe volume directory.
+
+    A name without '/' (a model written by train/modal_merge.py) maps to itself
+    when it uses only letters, digits, '.', '_' and '-'.
+    """
+    if "/" not in model_id and re.sub(r"[^A-Za-z0-9._-]+", "--", model_id).strip(".-") != model_id:
+        raise ValueError(
+            f"--model-id {model_id!r} is neither a Hub repo ID (org/name) nor a plain Volume "
+            "folder name (letters, digits, '.', '_', '-')."
+        )
     return re.sub(r"[^A-Za-z0-9._-]+", "--", model_id).strip(".-")
 
 
@@ -119,6 +128,14 @@ def train(
     model_path = Path(MODEL_DIR) / _model_directory(model_id)
 
     if not (model_path / "config.json").is_file():
+        if "/" not in model_id:
+            # Not a Hub repo ID: a model of our own in the Volume, e.g. one written by
+            # train/modal_merge.py. Never download it from the Hub under that name.
+            raise FileNotFoundError(
+                f"No model at {model_path} in the hy-mt-models Volume. --model-id is either a "
+                "Hub repo ID (org/name) or a model folder in the Volume, such as one "
+                "written by train/modal_merge.py."
+            )
         from huggingface_hub import snapshot_download
 
         print(f"Downloading {model_id} into the model Volume...", flush=True)

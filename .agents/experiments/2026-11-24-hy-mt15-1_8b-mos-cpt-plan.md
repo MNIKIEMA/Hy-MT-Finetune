@@ -36,9 +36,10 @@ candidate differs from it only by the CPT stage.
   `--data_format text` (launcher `--data-format text`), documents packed into
   `max_seq_length` blocks with bos/eos, loss on every token
   ([training logbook](../logbooks/training.md)).
-- **Launcher**: pass the mode and the block size through
-  `train/modal_single_gpu.py`; start SFT from a CPT output (merged weights or
-  adapter).
+- ~~**Launcher**: start SFT from a CPT output~~ Done 2026-11-24: merge the
+  CPT adapter with `train/modal_merge.py`, then `--model-id <merged-name>`
+  trains a fresh LoRA on it (option chosen: merge, not continuing the CPT
+  adapter, so SFT is identical to the baseline's).
 - **Faster runs** (rerun the baseline with them before comparing):
   `--use_flash_attn`, and length-grouped batches for SFT (the current random
   batches pad every row to the longest in its batch).

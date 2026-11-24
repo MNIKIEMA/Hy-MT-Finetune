@@ -4,6 +4,23 @@
 JSONL, masking the loss to the assistant reply. `modal_single_gpu.py` runs it
 on one Modal GPU with models, data and outputs in Modal Volumes.
 
+## 2026-11-24 (merge on Modal; merged models as `--model-id`)
+
+- **`train/modal_merge.py`** runs `merge_lora_weight.py` on a CPU container:
+  adapter from `hy-mt-training-output`, merged model to `hy-mt-models/<name>`.
+  A separate app, because a second function in `modal_single_gpu.py` would
+  make `modal run train/modal_single_gpu.py --model-id ...` ambiguous. It
+  refuses to overwrite, and removes a half-written output on failure.
+- **Launcher**: a `--model-id` without `/` is a folder of ours in
+  `hy-mt-models`: a missing one raises `FileNotFoundError` instead of a Hub
+  download, a name with other characters than letters, digits, `.`, `_`, `-`
+  raises `ValueError`. The check runs in the GPU container, so it waits for a
+  GPU first (an L4 test waited >10 min for capacity; A100 was free).
+- Checked on Modal: merged `fra-mos-mix-lr2e-4/checkpoint-800` (3.7 GB of
+  bf16 safetensors plus tokenizer/config files), re-merge refused, and 2
+  training steps from the merged model on an A100 (fresh LoRA r64, no
+  download). Test folders deleted afterwards.
+
 ## 2026-11-24 (merge defaults: bf16, safetensors)
 
 - `merge_lora_weight.py` now saves `model.safetensors` (was `.bin`) in bf16 by

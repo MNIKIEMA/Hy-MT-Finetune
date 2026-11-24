@@ -20,6 +20,7 @@ train/train_lora.sh              # MoE LoRA fine-tuning launcher
 train/train.py                   # MoE training entrypoint
 train/merge_lora_weight.sh       # LoRA merge launcher
 train/merge_lora_weight.py       # LoRA merge entrypoint
+train/modal_merge.py             # LoRA merge on Modal, into the hy-mt-models Volume
 scripts/mix_translation_data.py  # mos/dyu/fra/eng bidirectional data mixer
 train/ds_zero*.json              # DeepSpeed configs for full fine-tuning launchers
 ```
@@ -140,6 +141,23 @@ For continued pretraining on plain text, pass `--data-format text`: rows are
 `{"text": "..."}` documents (any other fields are ignored), each wrapped in the
 model's begin and end tokens, concatenated and cut into `--max-seq-length`
 blocks, with loss on every token. The eval file uses the same format.
+
+To train on top of a LoRA adapter (e.g. translation training after continued
+pretraining), merge it into the base model on Modal, then pass the merged
+model's name as `--model-id`:
+
+```bash
+MODAL_PROFILE=nikiemamahamadi01 uv run --extra modal modal run train/modal_merge.py \
+  --adapter-path hy-mt1_5-1_8b-mos-cpt/checkpoint-1000 \
+  --output-model hy-mt1_5-1_8b-mos-cpt-v1
+MODAL_GPU=A100 uv run --extra modal modal run train/modal_single_gpu.py \
+  --model-id hy-mt1_5-1_8b-mos-cpt-v1 --train-data-file fra_mos_mix_train_v1.jsonl ...
+```
+
+The merge reads the adapter from `hy-mt-training-output`, writes bf16
+safetensors to `hy-mt-models`, keeps the adapter, and refuses to overwrite an
+existing model. A `--model-id` without `/` is a model folder in `hy-mt-models`
+and is never downloaded from the Hub. Serve it with `HY_MT_BASE_MODEL=<name>`.
 
 7B dense LoRA fine-tuning:
 
