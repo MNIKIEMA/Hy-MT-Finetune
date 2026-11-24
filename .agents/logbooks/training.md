@@ -4,6 +4,16 @@
 JSONL, masking the loss to the assistant reply. `modal_single_gpu.py` runs it
 on one Modal GPU with models, data and outputs in Modal Volumes.
 
+## 2026-11-24 (merge defaults: bf16, safetensors)
+
+- `merge_lora_weight.py` now saves `model.safetensors` (was `.bin`) in bf16 by
+  default (was fp32: ~7.2 GB instead of ~3.6 GB for 1.8B). It only reads the
+  adapter, so the adapter checkpoint is kept; tokenizer and config files are
+  copied from the base model folder.
+- Checked on CPU with a 2-layer random HunYuanDenseV1: with an adapter that
+  moves logits by up to 0.77, merged vs base + adapter differ by at most 0.006
+  (bf16 rounding).
+
 ## 2026-11-24 (plain-text mode for continued pretraining)
 
 - **`--data_format text`** (launcher `--data-format text`): `PackedTextDataset`

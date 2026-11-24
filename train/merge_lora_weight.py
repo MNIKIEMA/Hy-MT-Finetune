@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--adapter_model_path", type=str, required=True, help="Path to adapter model")
     parser.add_argument("--output_path", type=str, required=True, help="Path to save the output model")
     parser.add_argument("--save_dtype", type=str, choices=['bf16', 'fp32', 'fp16'], 
-                        default='fp32', help="In which dtype to save, fp32, bf16 or fp16.")
+                        default='bf16', help="In which dtype to save, bf16 (default), fp32 or fp16.")
     args = parser.parse_args()
 
     name2dtype = {'bf16': torch.bfloat16, 'fp32': torch.float32, 'fp16': torch.float16}
@@ -26,7 +26,7 @@ def main():
 
     model = model.merge_and_unload()
 
-    model.save_pretrained(args.output_path, safe_serialization=False)
+    model.save_pretrained(args.output_path, safe_serialization=True)
 
     # Copy tokenizer, config and other non-weight files from base model
     # Skip model weight files (.safetensors, .bin, .pt) and index files
