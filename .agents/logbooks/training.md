@@ -11,11 +11,16 @@ on one Modal GPU with models, data and outputs in Modal Volumes.
   settings and seed (trainer default 42, no seed set in our code): final
   eval loss 1.569 vs 1.572, but only 3–7% identical outputs on sentence
   sets, and moore-web fra→mos looping 30 vs 57 (chrF++ 31.08 vs 30.88).
-- Source: GPU nondeterminism (FlashAttention-2 backward, bf16, LoRA on
-  A100), amplified over 782 steps. Not measured further.
+- Most likely source: GPU nondeterminism (FlashAttention-2 backward, bf16,
+  LoRA on A100), amplified over 782 steps. Inferred, not tested: weights,
+  seed and data order are the same and the training code does not read the
+  only added config field (`eod_token_id`); the same setup was not run
+  twice on one model folder.
 - Consequence: compare runs on several SFT repeats (mean ± spread), or
   make SFT deterministic (`full_determinism`, eager attention: slower; not
-  tried). Single-run differences in looping and of ~0.5 chrF++ are noise.
+  tried). Single-run differences in looping and of ~0.5 chrF++ can be
+  noise: one pair of runs gave 30 vs 57. How large the spread usually is
+  needs more repeats.
 
 ## 2026-11-25 (save/eval interval flags for short runs)
 

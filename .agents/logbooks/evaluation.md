@@ -40,9 +40,10 @@ the training prompt, and scores chrF++ / BLEU per direction.
   difference.
 - **Correction (same day, null-merge control)**: eval noise is the small
   part. Retraining the same SFT from identical weights and seed moves
-  moore-web fra→mos looping from 30 to 57 and chrF++ by up to ~0.5 (GPU
-  nondeterminism; [training logbook](training.md)). The CPT v1 looping rise
-  (30 → 41–57) is within that, not beyond it as first written here.
+  moore-web fra→mos looping from 30 to 57 and chrF++ by up to ~0.5 in one
+  pair of runs (most likely GPU nondeterminism; [training
+  logbook](training.md)). The CPT v1 looping rise (30 → 41–57) is within
+  that, not beyond it as first written here.
   Compare candidates on several SFT repeats.
 
 ## 2026-11-24 (API key)

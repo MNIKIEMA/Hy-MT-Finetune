@@ -265,7 +265,8 @@ chrF++ (length ratio, looping outputs) where relevant; no empty outputs.
   offline eval.
 - Same weights, same seed (trainer default 42: same LoRA init and data
   order), the training code never reads the added `eod_token_id`: this run
-  is a rerun of the baseline up to GPU nondeterminism. Yet only 3–7% of its
+  is a rerun of the baseline, differing most likely only by GPU
+  nondeterminism (inferred, not tested). Yet only 3–7% of its
   sentence outputs equal the baseline's, and:
 
   | moore-web fra→mos | chrF++ | length ratio | looping |
@@ -279,12 +280,14 @@ chrF++ (length ratio, looping outputs) where relevant; no empty outputs.
   baseline (eng→mos looping 2 vs 7).
 - **Conclusion: the CPT "looping increase" is within SFT run-to-run
   variation.** A rerun of the baseline alone moves moore-web fra→mos
-  looping from 30 to 57 and chrF++ by up to ~0.5. The baseline's 30 looks
-  like the low end. None of the CPT v1 results (2e-4 or 5e-5) differs from
+  looping from 30 to 57 and chrF++ by up to ~0.5 in this one pair of runs.
+  The baseline's 30 may be the low end; how wide the spread usually is
+  needs more repeats. None of the CPT v1 results (2e-4 or 5e-5) differs from
   the baseline beyond that spread, in looping or chrF++.
-- Merging is not the cause; do not suspect the merge path further.
+- Merging is not the cause (the null merge loops like the CPT runs while
+  its weights equal the base model's).
 - From now on: compare candidates on 3 SFT repeats each (or a deterministic
-  SFT), reporting mean and spread; single runs cannot separate effects of
+  SFT), reporting mean and spread; single runs may not separate effects of
   this size.
 
 ## Ladder
