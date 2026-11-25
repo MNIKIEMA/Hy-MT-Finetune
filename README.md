@@ -261,6 +261,23 @@ can't be dropped), and the build fails if one is still found in a document.
 
 ## Evaluation on Modal
 
+For comparing runs, prefer the offline evaluator: one `modal run` loads the
+base model (a `hy-mt-models` folder) and LoRA adapters (paths in
+`hy-mt-training-output`) with vLLM, translates the sets, writes the same
+prediction files and `summary.md` as `evaluate_translation.py`, and exits.
+Each base model is a separate run, so comparisons can run in parallel.
+
+```bash
+MODAL_GPU=A100 uv run --extra modal --extra eval modal run train/modal_vllm_eval.py \
+  --base-model tencent--HY-MT1.5-1.8B \
+  --loras baseline=hy-mt1_5-1_8b-sft1ep-baseline/checkpoint-782 \
+  --sets bouquet,moore-web --bouquet-split dev --moore-web-split validation \
+  --output-dir eval/results/my-run
+```
+
+Scores match the server within decoding noise (greedy bf16 under different
+batching): ~0.2 chrF++ on Bouquet sentence dev, ~1 on paragraph dev.
+
 `train/modal_vllm_server.py` serves the base model as `hy-mt` and each LoRA
 adapter under its own name with vLLM, behind an OpenAI-compatible API. It
 reads the base model from the `hy-mt-models` Volume and adapters from

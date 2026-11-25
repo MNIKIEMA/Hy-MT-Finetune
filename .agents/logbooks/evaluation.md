@@ -5,6 +5,41 @@
 FLORES+ `devtest` (10 directions) and moore-web `test` (fra↔mos) to it with
 the training prompt, and scores chrF++ / BLEU per direction.
 
+## 2026-11-25 (redeploying the server between models)
+
+- **After `modal deploy` with another `HY_MT_BASE_MODEL`/`HY_MT_LORAS`, the
+  previous warm container keeps answering** with the old models (seen:
+  `/v1/models` listed `hy-mt`, `baseline` after deploying `cpt-ep1`).
+  Requests for the new adapter name would fail and be scored as empty.
+  Stop the app's containers first (`modal container stop --yes <id>`, ids
+  from `modal container list --json`), then wait until `/v1/models` lists
+  the new name. `container stop` asks for confirmation without `--yes`.
+- Decided: evaluate comparisons offline instead (one `modal run` that loads
+  the base model and adapter with vLLM, scores, exits), so nothing is left
+  deployed and runs can go in parallel.
+
+## 2026-11-25 (`train/modal_vllm_eval.py`: offline evaluation, and eval noise)
+
+- **Offline evaluator**: one `modal run` loads the base model and adapters
+  with `vllm.LLM` (same engine settings as the server: bf16,
+  `max_model_len` 1024, eager), translates with `LLM.chat`, returns the
+  texts and exits. Sets, prompts, scoring and output layout are
+  `evaluate_translation.py`'s; datasets are loaded locally. 7,478 rows
+  (Bouquet dev both levels + moore-web validation) in a few minutes on an
+  A100.
+- **Checked against the server** on the 1-epoch SFT baseline adapter
+  (`hy-mt1_5-1_8b-sft1ep-baseline/checkpoint-782`): chrF++ moore-web
+  validation ±0.01, Bouquet sentence dev −0.20 to +0.20, Bouquet paragraph
+  dev −0.50 to +1.07. 61% of outputs identical; of the differing ones,
+  93.5% share a prefix and diverge later (median 39% of the output):
+  greedy bf16 decoding under different batching, not a prompt difference.
+- **So a single eval has noise**: up to ~0.2 chrF++ on Bouquet sentence dev
+  (504 rows), ~1 on paragraph dev (120 rows), ~0 on moore-web (2,491).
+  Looping counts move too (moore-web mos→fra 4 vs 11, Bouquet paragraph
+  fra→mos 7 vs 11). Treat smaller differences between runs as no
+  difference; the CPT v1 looping rise on moore-web fra→mos (31 → 41 → 46,
+  vs 31/30 here) is beyond it.
+
 ## 2026-11-24 (API key)
 
 - `evaluate_translation.py` reads `VLLM_API_KEY` from the environment only
