@@ -5,6 +5,54 @@
 FLORES+ `devtest` (10 directions) and moore-web `test` (fra↔mos) to it with
 the training prompt, and scores chrF++ / BLEU per direction.
 
+## TODO (next session)
+
+- **Try `no_repeat_ngram_size` at decoding** (e.g. 3, 4, 5) on an existing
+  adapter (the 1-epoch SFT baseline), with `train/modal_vllm_eval.py` on
+  Bouquet dev and moore-web validation. The goal is a better translation
+  model, not only fewer loops: keep a setting only if chrF++ (and BLEU) are
+  not lower than at the current setting (greedy, repetition penalty 1.05)
+  beyond eval noise (~0.2 chrF++ on Bouquet sentence dev, ~1 on paragraph
+  dev), and report looping and length ratio next to them. Repetition
+  penalty 1.15 already showed the trap: loops nearly gone, chrF++ −1 to −2
+  (2026-10-28 entry). Mooré repeats short function words legitimately
+  ("n", "a", "la", "tɩ"), so small n-gram sizes may hurt; check both
+  directions, since the setting also applies into French and English.
+  Needs a new option in `modal_vllm_eval.py`. Checked in vLLM 0.31.0:
+  `SamplingParams` has no `no_repeat_ngram_size` and no per-request
+  `logits_processors` (V1 engine: logits processors are engine-level), so
+  blocking repeated n-grams needs an engine-level logits processor.
+- **Also try vLLM's `repetition_detection`** (`RepetitionDetectionParams`
+  in `SamplingParams`, vLLM 0.31.0): it detects repeating n-gram patterns
+  in the output and *ends generation early*; it does not block the
+  repeat. A cut-off loop keeps the useful start of the translation and
+  fixes the length ratio, so it may help chrF++ where `no_repeat_ngram_size`
+  could hurt legitimate Mooré repetition. Its parameters were not read
+  yet. Same rule: keep it only if chrF++ is not lower.
+
+## 2026-11-25 (Burkimbia leaderboard chrF++ = mean of sentence chrF++)
+
+- The 2026-10-28 submission (`mos-dyu` checkpoint-2400, 200k mix) scored
+  **24.83** fra→mos on the leaderboard (Bouquet sentence `test`, 854 rows);
+  our `summary.json` says 25.57 for the same translations (all 854
+  identical to the submitted CSV).
+- **The leaderboard averages sentence-level chrF++** (sacrebleu
+  `CHRF(word_order=2).sentence_score` per row, then mean): that gives
+  exactly 24.83. Ours is corpus-level chrF++. Not the cause: lowercasing
+  (26.19), chrF without word n-grams (26.42); GlotLID filtering removed
+  nothing here.
+- So leaderboard ≈ ours − 0.7 for this system, but the offset depends on
+  the system (corpus and sentence averages weigh long and short sentences
+  differently). Compare with leaderboard systems on the mean-sentence
+  number, not by subtracting 0.7.
+- Leaderboard fra→mos (chrF++ / MetricX, lower is better): NLLB-200 3.3B
+  30.72 / 13.98, OMT-NLLB 28.73 / 14.12, NLLB-200 1.3B 28.17 / 14.55,
+  OMT-LLaMA-3B 25.32 / 14.39, our 200k-mix HY-MT 1.8B 24.83. We are ~6
+  behind NLLB-200 3.3B and ~3.3 behind NLLB-200 1.3B: much larger than
+  anything measured for CPT (< 0.5).
+- TODO: report mean sentence chrF++ next to corpus chrF++ in
+  `evaluate_translation.py`'s `score()`.
+
 ## 2026-11-25 (redeploying the server between models)
 
 - **After `modal deploy` with another `HY_MT_BASE_MODEL`/`HY_MT_LORAS`, the
