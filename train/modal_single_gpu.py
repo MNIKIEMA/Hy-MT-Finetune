@@ -42,7 +42,9 @@ image = (
         index_url="https://download.pytorch.org/whl/cu128",
     )
     .uv_pip_install(
-        "transformers>=5.6.0",
+        # The kernels extra lets --use_flash_attn load a prebuilt FlashAttention-2 kernel
+        # from the Hub (kernels-community/flash-attn2) instead of compiling flash-attn.
+        "transformers[kernels]>=5.6.0",
         "datasets>=4.4.0",
         "accelerate>=1.11.0",
         "peft>=0.18.1",
@@ -99,12 +101,14 @@ def train(
     output_name: str = "lora",
     max_steps: int = -1,
     num_train_epochs: float = 1,
-    per_device_train_batch_size: int = 4,
-    gradient_accumulation_steps: int = 16,
+    per_device_train_batch_size: int = 32,
+    gradient_accumulation_steps: int = 2,
     max_seq_length: int = 512,
     learning_rate: float = 2e-4,
     warmup_steps: int = 10,
-    use_flash_attn: bool = False,
+    use_flash_attn: bool = True,
+    group_by_length: bool = True,
+    gradient_checkpointing: bool = True,
     data_format: str = "chat",
 ) -> str:
     """Fine-tune a Hub model and return its checkpoint directory on the output Volume."""
@@ -158,7 +162,6 @@ def train(
         "--output_dir", str(output_path),
         "--per_device_train_batch_size", str(per_device_train_batch_size),
         "--gradient_accumulation_steps", str(gradient_accumulation_steps),
-        "--gradient_checkpointing",
         "--lr_scheduler_type", "cosine_with_min_lr",
         "--logging_steps", "1",
         "--max_steps", str(max_steps),
@@ -195,6 +198,13 @@ def train(
         ]
     if use_flash_attn:
         command.append("--use_flash_attn")
+    if gradient_checkpointing:
+        command.append("--gradient_checkpointing")
+    if group_by_length and data_format == "chat":
+        # Batch rows of similar length: random batches pad every row to the longest one
+        # (1.78x the real tokens on fra_mos_mix_train_v1). Packed text blocks are all
+        # max_seq_length long, so text mode has nothing to group.
+        command += ["--train_sampling_strategy", "group_by_length"]
 
     try:
         subprocess.run(command, check=True)

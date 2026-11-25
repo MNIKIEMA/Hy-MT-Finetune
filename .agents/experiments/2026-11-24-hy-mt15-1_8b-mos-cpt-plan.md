@@ -40,9 +40,10 @@ candidate differs from it only by the CPT stage.
   CPT adapter with `train/modal_merge.py`, then `--model-id <merged-name>`
   trains a fresh LoRA on it (option chosen: merge, not continuing the CPT
   adapter, so SFT is identical to the baseline's).
-- **Faster runs** (rerun the baseline with them before comparing):
-  `--use_flash_attn`, and length-grouped batches for SFT (the current random
-  batches pad every row to the longest in its batch).
+- **Faster runs** (done, now the launcher defaults; rerun the baseline with
+  them before comparing): FlashAttention-2 via `kernels`, length-grouped SFT
+  batches, micro-batch 32 x 2 accumulation. 4.8x faster on an A100 40GB
+  (training logbook, 2026-11-25).
 - **Held-out check**: drop CPT documents/sentences that contain moore-web
   validation/test, Bouquet dev/test or FLORES+ dev/devtest sentences, with
   the mixer's `normalize_text` matching. Web Mooré text is likely to overlap

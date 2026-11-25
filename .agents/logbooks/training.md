@@ -4,6 +4,35 @@
 JSONL, masking the loss to the assistant reply. `modal_single_gpu.py` runs it
 on one Modal GPU with models, data and outputs in Modal Volumes.
 
+## 2026-11-25 (faster launcher defaults)
+
+- **Speed test**: HY-MT1.5-1.8B LoRA r64, `fra_mos_mix_train_v1.jsonl`,
+  64 rows per optimizer step, max length 512, A100 40GB:
+
+  | Settings | 50 steps |
+  |---|---|
+  | old (eager/SDPA, random batches, 4 x 16, checkpointing) | 398 s |
+  | flash + grouped, 16 x 4, checkpointing | 120 s |
+  | flash + grouped, 32 x 2, checkpointing | 82 s (4.8x) |
+  | flash + grouped, 16 x 4, no checkpointing | OOM on the first batch |
+
+  40-step runs of flash + grouping alone at 4 x 16 took the same time as
+  the old settings (332 s vs 330 s) while computing ~35% fewer padded
+  tokens: micro-batches of 4 short rows (mean 107 tokens) leave the GPU
+  idle, so step time barely tracks tokens. The batch size is the lever;
+  grouping keeps its memory bounded.
+- **Padding**: random batches of 4 compute 1.78x the real tokens of the
+  mix; length grouping 1.00x. Computing the lengths tokenizes every row
+  once at startup (~35 s locally for 50k rows).
+- **FlashAttention-2** comes from `transformers[kernels]` (kernels 0.18.3
+  resolved): without `flash_attn` installed, `flash_attention_2` falls back
+  to `kernels-community/flash-attn2` from the Hub. No compile.
+- **Grouping also applies to eval batches**, and eval loss is a mean of
+  per-batch means, so eval losses of grouped runs are not exactly
+  comparable to the old run's (1.524 at step 800): rerun the baseline.
+- `group_by_length` is skipped in text mode: packed blocks all have the
+  same length.
+
 ## 2026-11-24 (merge on Modal; merged models as `--model-id`)
 
 - **`train/modal_merge.py`** runs `merge_lora_weight.py` on a CPU container:

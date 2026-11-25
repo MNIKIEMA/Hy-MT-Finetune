@@ -137,6 +137,13 @@ different GPU, set `MODAL_GPU` when launching, e.g.
 every 200 steps, keep the best checkpoint, and stop early when validation loss
 stops improving.
 
+Launcher speed defaults (all switchable): FlashAttention-2 from the Hub
+`kernels` package (`--no-use-flash-attn`), length-grouped batches in chat mode
+(`--no-group-by-length`), gradient checkpointing (`--no-gradient-checkpointing`)
+and micro-batches of 32 x 2 accumulation steps (64 rows per optimizer step).
+These were tested on an A100 40GB; on an L4, try
+`--per-device-train-batch-size 16 --gradient-accumulation-steps 4`.
+
 For continued pretraining on plain text, pass `--data-format text`: rows are
 `{"text": "..."}` documents (any other fields are ignored), each wrapped in the
 model's begin and end tokens, concatenated and cut into `--max-seq-length`
