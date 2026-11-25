@@ -14,8 +14,15 @@ on one Modal GPU with models, data and outputs in Modal Volumes.
 - With an eval file, save steps must be a multiple of eval steps:
   `--load_best_model_at_end` can only choose among evaluated checkpoints. The
   launcher now refuses other values before starting a GPU.
-- Checked: `modal run train/modal_single_gpu.py --help` lists the flags. Not
-  yet run on a GPU.
+- Checked: `modal run train/modal_single_gpu.py --help` lists the flags.
+- **5-step CPT trial** (A100, HY-MT1.5-1.8B LoRA r64, `cpt_mos_v1.jsonl`,
+  `--data-format text`, 2048 × 8 × 2, save/eval every 5): no OOM with
+  gradient checkpointing (peak memory not logged); 840 train / 28 eval
+  blocks; ~4.5 s per step, 0.019 epoch per step (52 steps per epoch), so the
+  2-epoch run is ~8 min of training. Loss 3.66 → 3.24 over warmup, eval loss
+  3.32 at step 5. Eval, save (`checkpoint-5`: adapter, optimizer, scheduler)
+  and `load_best_model_at_end` all ran. Output
+  `hy-mt1_5-1_8b-mos-cpt-trial` on `hy-mt-training-output` is a test only.
 
 ## 2026-11-25 (faster launcher defaults)
 
