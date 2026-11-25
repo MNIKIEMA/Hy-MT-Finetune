@@ -54,6 +54,7 @@ rows, compared with rung 3 alone). To go in a separate
   609,252 Mooré words: council 92 sessions 397,000; raamde 422 articles
   123,504; ministereduc 27 posts 17,538; faso_docs 109 files 71,210. Council
   from `madoss/conseil-ministres-parsed` at `841e617` (up to 2026-09-10).
+  Both files uploaded to the `hy-mt-data` volume root under the same names.
 - **Raamde: use moore-web's Mooré run (`segments.moore`), not per-unit GlotLID
   labels.** moore-web's `segment_news_data.py` cuts each article at the
   "Kibarã yii"/"Zɩll KAFAANDO" credit marker, else at the first French unit.

@@ -149,6 +149,9 @@ For continued pretraining on plain text, pass `--data-format text`: rows are
 `{"text": "..."}` documents (any other fields are ignored), each wrapped in the
 model's begin and end tokens, concatenated and cut into `--max-seq-length`
 blocks, with loss on every token. The eval file uses the same format.
+Checkpoints and evaluation default to every 200 steps, keeping 2; short runs
+set `--save-steps`, `--eval-steps` (save steps must be a multiple of eval
+steps when an eval file is given) and `--save-total-limit`.
 
 To train on top of a LoRA adapter (e.g. translation training after continued
 pretraining), merge it into the base model on Modal, then pass the merged

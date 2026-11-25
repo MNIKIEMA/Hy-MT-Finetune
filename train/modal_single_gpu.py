@@ -110,10 +110,16 @@ def train(
     group_by_length: bool = True,
     gradient_checkpointing: bool = True,
     data_format: str = "chat",
+    save_steps: int = 200,
+    eval_steps: int = 200,
+    save_total_limit: int = 2,
 ) -> str:
     """Fine-tune a Hub model and return its checkpoint directory on the output Volume."""
     if model_size not in {"0.5B", "1.8B", "4B", "7B"}:
         raise ValueError("model_size must be one of: 0.5B, 1.8B, 4B, 7B")
+    if eval_data_file and save_steps % eval_steps:
+        # --load_best_model_at_end can only pick among checkpoints that were evaluated.
+        raise ValueError(f"save_steps ({save_steps}) must be a multiple of eval_steps ({eval_steps}).")
 
     data_path = Path(DATA_DIR) / _safe_relative_path(train_data_file, "train_data_file")
     if not data_path.is_file():
@@ -166,8 +172,8 @@ def train(
         "--logging_steps", "1",
         "--max_steps", str(max_steps),
         "--num_train_epochs", str(num_train_epochs),
-        "--save_steps", "200",
-        "--save_total_limit", "2",
+        "--save_steps", str(save_steps),
+        "--save_total_limit", str(save_total_limit),
         "--learning_rate", str(learning_rate),
         "--min_lr", "1e-6",
         # `warmup_ratio` is not accepted by some current Transformers builds;
@@ -190,7 +196,7 @@ def train(
         command += [
             "--eval_data_file", str(eval_path),
             "--eval_strategy", "steps",
-            "--eval_steps", "200",
+            "--eval_steps", str(eval_steps),
             "--per_device_eval_batch_size", str(per_device_train_batch_size),
             "--load_best_model_at_end",
             "--metric_for_best_model", "eval_loss",

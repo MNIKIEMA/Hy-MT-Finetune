@@ -49,6 +49,44 @@ candidate differs from it only by the CPT stage.
   Bouquet dev/test (sentence and paragraph level) Mooré, with the mixer's
   `normalize_text`; the build fails if one of 4+ words and 20+ characters is
   still inside a document.
+- ~~**Save/eval interval**~~ Done 2026-11-25: launcher flags `--save-steps`,
+  `--eval-steps`, `--save-total-limit` (defaults 200, 200, 2 as before). Were
+  fixed at 200, more than a whole CPT run.
+
+## CPT settings (first run, rung 3; not yet run)
+
+`cpt_mos_v1.jsonl` is 1,721,957 HY-MT tokens (2.92 per word, counted, not
+the 2.73 estimate); validation 58,713. Median document 791 tokens, p90
+10,482 (Council sessions), max 37,677.
+
+| Setting | SFT default | CPT |
+|---|---|---|
+| `--max-seq-length` | 512 | 2048 (most articles and tales fit in one block) |
+| `--per-device-train-batch-size` × `--gradient-accumulation-steps` | 32 × 2 | 8 × 2 |
+| Tokens per micro-batch / per step | 16,384 / 32,768 | 16,384 / 32,768 |
+| Steps | — | 840 blocks → 52 per epoch |
+| `--num-train-epochs` | 1 | 2 (~105 steps); epochs are a knob |
+| `--warmup-steps` | 10 | 10 (~10%) |
+| `--learning-rate` | 2e-4 | 2e-4 (knob) |
+| `--save-steps` / `--eval-steps` / `--save-total-limit` | 200 / 200 / 2 | 26 / 26 / 5 |
+
+- Same tokens per micro-batch as SFT, which fits an A100 with gradient
+  checkpointing (the training logbook has an OOM without it). The default
+  32 × 2 at 2048 would be 131k tokens per step, ~13 steps per epoch, mostly
+  warmup.
+- Saving every 26 steps and keeping all 5 checkpoints keeps ~epoch 1
+  (step 52) and ~epoch 2 (step 104): each can go through SFT, since we
+  select after SFT, not on CPT loss.
+- Check memory and speed with `--max-steps 5` first.
+
+```bash
+MODAL_GPU=A100 uv run --extra modal modal run train/modal_single_gpu.py \
+  --model-id tencent/HY-MT1.5-1.8B --model-size 1.8B --data-format text \
+  --train-data-file cpt_mos_v1.jsonl --eval-data-file cpt_mos_validation_v1.jsonl \
+  --max-seq-length 2048 --per-device-train-batch-size 8 --gradient-accumulation-steps 2 \
+  --num-train-epochs 2 --save-steps 26 --eval-steps 26 --save-total-limit 5 \
+  --output-name hy-mt1_5-1_8b-mos-cpt-v1
+```
 
 ## Data candidates
 

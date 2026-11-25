@@ -4,6 +4,19 @@
 JSONL, masking the loss to the assistant reply. `modal_single_gpu.py` runs it
 on one Modal GPU with models, data and outputs in Modal Volumes.
 
+## 2026-11-25 (save/eval interval flags for short runs)
+
+- Launcher flags `--save-steps`, `--eval-steps`, `--save-total-limit`
+  (defaults 200, 200, 2, unchanged for SFT). They were fixed at 200, while
+  the first CPT run is ~105 steps (1.72M tokens, 2048-token blocks, 16 blocks
+  per step, 2 epochs; settings in the CPT plan), so it would never have
+  evaluated or saved mid-run.
+- With an eval file, save steps must be a multiple of eval steps:
+  `--load_best_model_at_end` can only choose among evaluated checkpoints. The
+  launcher now refuses other values before starting a GPU.
+- Checked: `modal run train/modal_single_gpu.py --help` lists the flags. Not
+  yet run on a GPU.
+
 ## 2026-11-25 (faster launcher defaults)
 
 - **Speed test**: HY-MT1.5-1.8B LoRA r64, `fra_mos_mix_train_v1.jsonl`,
