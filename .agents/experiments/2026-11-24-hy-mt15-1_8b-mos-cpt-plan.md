@@ -1,4 +1,4 @@
-# Plan — continued pretraining (CPT) on Mooré text for HY-MT1.5-1.8B (rung 3 done: no gain)
+# Plan — continued pretraining (CPT) on Mooré text for HY-MT1.5-1.8B (rung 3: no gain beyond SFT run-to-run noise)
 
 ## Goal
 
@@ -198,17 +198,94 @@ outputs.
 - **No chrF++ gain**: Bouquet sentence dev within ±0.35 in every direction
   for both CPT runs; moore-web −0.2 both directions (despite CPT having seen
   the context around moore-web validation sentences).
-- **The opposite of the goal on looping**: into-Mooré looping goes up with
-  CPT, not down: moore-web fra→mos 31 → 41 → 46, Bouquet sentence fra→mos
+- **The opposite of the goal on looping** (superseded: within SFT
+  run-to-run variation, see the null-merge control below): into-Mooré
+  looping goes up with CPT, not down: moore-web fra→mos 31 → 41 → 46, Bouquet sentence fra→mos
   2 → 5 → 9, and the moore-web fra→mos length ratio stays ~1.07.
 - **Into-French paragraphs drop with more CPT**: Bouquet paragraph mos→fra
   32.73 → 32.12 → 30.62 (120 rows only), mos→eng −0.6/−0.9. Consistent with
   forgetting long-context French/English after 2 epochs of Mooré-only text.
 - Single runs, no seeds: differences under ~1 chrF++ are not established.
-  The looping increase is consistent across sets and grows with CPT epochs.
+  The looping increase is consistent across sets and grows with CPT epochs
+  (superseded by the null-merge control: a baseline rerun loops 57).
 - Next options: replay (rung 7, French/translation rows in CPT), parallel
   rows (rung 3b), lower CPT lr or 1 epoch, or more Mooré (rungs 4–6). Bouquet
   `test` not used.
+
+### 2026-11-25 — CPT lr 5e-5 (`hy-mt1_5-1_8b-mos-cpt-v1-lr5e-5`): more looping, not less
+
+Same as the first CPT run except `--learning-rate 5e-5` (552 s). CPT eval
+loss 2.649 / 2.183 / 2.020 / 1.985 / 1.984 at steps 26 / 52 / 78 / 104 /
+106 (2e-4 run: 1.641 at the end). Checkpoints 52 and 106 merged
+(`hy-mt1_5-1_8b-mos-cpt-v1-lr5e-5-ep{1,2}`), same 1-epoch SFT (final eval
+loss 1.574 / 1.573), scored with `train/modal_vllm_eval.py`
+(`eval/results/cpt-v1-dev-offline/`). Baseline column = the same baseline
+adapter scored offline.
+
+| Set | Dir | Baseline (offline) | 2e-4 ep1 / ep2 (server) | 5e-5 ep1 / ep2 (offline) |
+|---|---|---|---|---|
+| Bouquet sentence dev | fra→mos | 24.82 (1.007, 3) | 24.67 (5) / 24.71 (9) | 24.37 (1.033, 5) / 24.97 (1.007, 3) |
+| | mos→fra | 27.06 | 27.14 / 26.78 | 27.29 / 27.64 |
+| | eng→mos | 24.31 (2) | 24.39 (7) / 24.51 (4) | 24.68 (4) / 24.46 (6) |
+| | mos→eng | 28.97 | 29.38 / 29.45 | 29.51 / 28.74 |
+| Bouquet paragraph dev | fra→mos | 25.65 (11) | 25.81 / 25.95 | 25.27 (12) / 24.48 (10) |
+| | mos→fra | 33.80 | 32.12 / 30.62 | 32.19 / 30.99 |
+| moore-web validation | fra→mos | 31.08 (1.064, 30) | 30.88 (41) / 30.84 (46) | 30.55 (1.078, 54) / 30.58 (1.087, 57) |
+| | mos→fra | 35.27 | 35.03 / 35.03 | 34.93 / 34.97 |
+
+chrF++ (length ratio, looping outputs) where relevant; no empty outputs.
+
+- **Gentler CPT loops more, not less** (superseded: the null-merge
+  baseline rerun also loops 57, see below): moore-web fra→mos looping 30
+  (baseline) → 41/46 (2e-4) → 54/57 (5e-5), length ratio 1.064 → 1.087,
+  chrF++ −0.5. The model that moved least from HY-MT (higher CPT loss) is
+  the worst, so looping does not scale with how much CPT changed the model.
+- Bouquet sentence dev: all within ~±0.6 of the baseline (eval noise ~0.2);
+  paragraph mos→fra lower for every CPT run (−1.6 to −3.2 vs offline
+  baseline, 120 rows, noise ~1).
+- **Suspect: something every merged model shares, not CPT content or
+  strength.** Ruled out: stop tokens (`eos_token_id` 120020 in config and
+  generation config), generation config, tokenizer config, trainable
+  params. Remaining difference: the merged `config.json` is re-saved by
+  transformers 5 (`rope_scaling` → `rope_parameters` with dynamic-RoPE
+  `alpha` 1000, added `eod_token_id: 3`), plus the bf16 merge itself.
+- **Control to run next**: a "null CPT" model through the same merge path
+  (a LoRA adapter whose update is zero, merged and saved like the others),
+  then the same SFT and offline eval. Loops like the CPT runs → the merge
+  path is the cause; like the baseline → CPT data is.
+
+### 2026-11-25 — null-merge control: single SFT runs are not reproducible
+
+- vLLM 0.31's transformers 5.17 parses the base and merged configs
+  identically (dynamic RoPE, alpha 1000, theta 10000).
+- Zero LoRA adapter (CPT config, all 224 `lora_B` zeroed) merged with
+  `train/modal_merge.py` into `hy-mt1_5-1_8b-mos-null-merge`: all 354 weight
+  tensors bit-identical to HY-MT1.5-1.8B (`lm_head` absent, equal to the
+  tied embeddings). Same 1-epoch SFT (eval loss 1.572 vs baseline 1.569),
+  offline eval.
+- Same weights, same seed (trainer default 42: same LoRA init and data
+  order), the training code never reads the added `eod_token_id`: this run
+  is a rerun of the baseline up to GPU nondeterminism. Yet only 3–7% of its
+  sentence outputs equal the baseline's, and:
+
+  | moore-web fra→mos | chrF++ | length ratio | looping |
+  |---|---:|---:|---:|
+  | Baseline | 31.08 | 1.064 | 30 |
+  | **Null merge (= baseline rerun)** | 30.88 | 1.082 | **57** |
+  | CPT 5e-5 ep1 / ep2 | 30.55 / 30.58 | 1.078 / 1.087 | 54 / 57 |
+  | CPT 2e-4 ep1 / ep2 (server) | 30.88 / 30.84 | 1.067 / 1.076 | 41 / 46 |
+
+  Bouquet sentence dev: null merge within −0.44 to −0.08 chrF++ of the
+  baseline (eng→mos looping 2 vs 7).
+- **Conclusion: the CPT "looping increase" is within SFT run-to-run
+  variation.** A rerun of the baseline alone moves moore-web fra→mos
+  looping from 30 to 57 and chrF++ by up to ~0.5. The baseline's 30 looks
+  like the low end. None of the CPT v1 results (2e-4 or 5e-5) differs from
+  the baseline beyond that spread, in looping or chrF++.
+- Merging is not the cause; do not suspect the merge path further.
+- From now on: compare candidates on 3 SFT repeats each (or a deterministic
+  SFT), reporting mean and spread; single runs cannot separate effects of
+  this size.
 
 ## Ladder
 

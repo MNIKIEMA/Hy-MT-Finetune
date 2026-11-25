@@ -6,6 +6,27 @@ three Hub datasets; `validation` builds FLORES+ dev and moore-web validation
 files per direction. Weights, filters and the evaluation plan are in `data.md`
 (gitignored, local only).
 
+## 2026-11-25 (plan for `cpt_mos_v2.jsonl`; not built yet)
+
+Additions for the next CPT build, written to `cpt_mos_v2.jsonl` /
+`cpt_mos_validation_v2.jsonl` so `cpt_mos_v1.jsonl` (all CPT runs so far)
+stays reproducible.
+
+- **`sida-bilingual-book/2 SIDA mooré - français.pdf`**: left out of v1
+  because plain `pdftotext` mixes its two columns line by line. The Mooré is
+  the left half of each A5 page (420 × 595 pt): `pdftotext -x 0 -y 0 -W 205
+  -H 595` gives clean Mooré (4,101 words, 34% with a Mooré-only letter, 2.1%
+  French function words, front matter the line filter drops). Needs a
+  per-file crop in `build_cpt_data.py` (`FASO_DOCS` takes plain paths only).
+- **Small gain**: 140 of its 262 sentences (5+ words) are already in v1
+  verbatim, via the learner edition `mooreburkina-priority/pdf/20-sida-…`
+  (105) and the Kadé facilitator manual (90). New text ≈ 2,000 words (~0.3%
+  of v1), minus moore-web validation/test sentences (16 overlaps counted).
+- Other v2 candidates already noted: the burkinadoc scans once the moore-ocr
+  work can read them, the 3 newer Council sessions (2026-09-24, 10-08,
+  10-22; needs a `conseil-ministres` rebuild), new Ministry of Education
+  posts (the mirror grows weekly).
+
 ## 2026-11-25 (format for French↔Mooré parallel text in CPT; not built yet)
 
 Decided for a later CPT rung ("3b": rung 3's Mooré documents plus parallel
