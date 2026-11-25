@@ -1,4 +1,4 @@
-# Plan — continued pretraining (CPT) on Mooré text for HY-MT1.5-1.8B (not started)
+# Plan — continued pretraining (CPT) on Mooré text for HY-MT1.5-1.8B (rung 3 CPT done, SFT next)
 
 ## Goal
 
@@ -53,7 +53,7 @@ candidate differs from it only by the CPT stage.
   `--eval-steps`, `--save-total-limit` (defaults 200, 200, 2 as before). Were
   fixed at 200, more than a whole CPT run.
 
-## CPT settings (first run, rung 3; not yet run)
+## CPT settings (first run, rung 3)
 
 `cpt_mos_v1.jsonl` is 1,721,957 HY-MT tokens (2.92 per word, counted, not
 the 2.73 estimate); validation 58,713. Median document 791 tokens, p90
@@ -122,6 +122,29 @@ for the same sessions. The rest of a session stays, so the model sees the
 context around moore-web test sentences: **select on Bouquet dev** (2 Bouquet
 test hits only, none in dev) and treat moore-web validation as a secondary
 check for CPT candidates that include Council or Raamde.
+
+## Runs
+
+### 2026-11-25 — rung 3 CPT (`hy-mt1_5-1_8b-mos-cpt-v1`)
+
+Settings as in "CPT settings" above, A100, 106 steps, 541.8 s of training.
+Checkpoints on `hy-mt-training-output`: 26, 52, 78, 104, 106 (all kept).
+
+| Step | Epoch | Train loss | Eval loss (`cpt_mos_validation_v1`, 28 blocks) |
+|---:|---:|---:|---:|
+| 1 | 0.02 | 3.66 | — (3.32 at step 5 in the trial) |
+| 26 | 0.50 | 2.18 | 2.233 |
+| 52 | 0.99 | 1.98 | 1.805 |
+| 78 | 1.48 | 1.51 | 1.671 |
+| 104 | 1.97 | — | 1.641 |
+| 106 | 2.00 | 1.48 | 1.641 |
+
+- Eval loss still falls in epoch 2 (1.805 → 1.641) but slows (−0.03 over the
+  last 26 steps); train loss drops faster than eval in epoch 2 (second pass
+  over the same text). No sign of overfitting yet by CPT loss.
+- CPT loss is not translation quality: next is merge, 1-epoch SFT and Bouquet
+  dev for checkpoint 52 (~epoch 1) and 106 (epoch 2), against the 1-epoch
+  SFT baseline (rung 1).
 
 ## Ladder
 

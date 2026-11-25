@@ -32,4 +32,4 @@ averaged over the 10 directions; per-direction scores are in each file.
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-10-27 | [HY-MT1.5-1.8B, mos/dyu/fra/eng bidirectional](2026-10-27-hy-mt15-1_8b-mos-dyu-bidirectional.md) | tencent/HY-MT1.5-1.8B + LoRA r64 | `mixed_v1.jsonl` (200k, 5 pairs) | 1.09 of 2 (early stopping) / 2e-4 | 3.029 (step 2,400) | 18.38 (base 15.96) |
 | 2026-11-24 | [HY-MT1.5-1.8B on the TranslateGemma fra↔mos mix](2026-11-24-hy-mt15-1_8b-fra-mos-mix.md) | tencent/HY-MT1.5-1.8B + LoRA r64 | `fra_mos_mix_train_v1.jsonl` (50k, fra↔mos) | 2 / 2e-4 | 1.524 (step 800; moore-web validation, not comparable) | not run (Bouquet / moore-web only) |
-| 2026-11-24 | [Plan: CPT on Mooré text](2026-11-24-hy-mt15-1_8b-mos-cpt-plan.md) (not started) | tencent/HY-MT1.5-1.8B | Mooré text, then `fra_mos_mix_train_v1.jsonl` | — | — | — |
+| 2026-11-24 | [Plan: CPT on Mooré text](2026-11-24-hy-mt15-1_8b-mos-cpt-plan.md) (rung 3 CPT done, SFT next) | tencent/HY-MT1.5-1.8B | Mooré text, then `fra_mos_mix_train_v1.jsonl` | — | — | — |
