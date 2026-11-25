@@ -1,4 +1,4 @@
-# Plan — continued pretraining (CPT) on Mooré text for HY-MT1.5-1.8B (rung 3 CPT done, SFT next)
+# Plan — continued pretraining (CPT) on Mooré text for HY-MT1.5-1.8B (rung 3 done: no gain)
 
 ## Goal
 
@@ -145,6 +145,70 @@ Checkpoints on `hy-mt-training-output`: 26, 52, 78, 104, 106 (all kept).
 - CPT loss is not translation quality: next is merge, 1-epoch SFT and Bouquet
   dev for checkpoint 52 (~epoch 1) and 106 (epoch 2), against the 1-epoch
   SFT baseline (rung 1).
+
+### 2026-11-25 — 1-epoch SFT: baseline (rung 1) and on CPT epochs 1 and 2
+
+Same SFT for all three: `fra_mos_mix_train_v1.jsonl`, 1 epoch (782 steps),
+lr 2e-4, 100 warmup, launcher defaults (32 × 2, flash, grouped), A100. CPT
+checkpoints merged with `train/modal_merge.py` into
+`hy-mt1_5-1_8b-mos-cpt-v1-ep1` (checkpoint-52) and `-ep2` (checkpoint-106)
+on `hy-mt-models`.
+
+| Run (`hy-mt-training-output/…`) | Starts from | Eval loss 0.26 / 0.51 / 0.77 / 1.0 epoch |
+|---|---|---|
+| `hy-mt1_5-1_8b-sft1ep-baseline` | HY-MT1.5-1.8B | 2.439 / 1.842 / 1.615 / **1.569** |
+| `hy-mt1_5-1_8b-cpt-v1-ep1-sft` | CPT epoch 1 | 2.288 / 1.804 / 1.606 / **1.567** |
+| `hy-mt1_5-1_8b-cpt-v1-ep2-sft` | CPT epoch 2 | 2.263 / 1.793 / 1.609 / **1.570** |
+
+Eval loss on `fra_mos_mix_validation_v1.jsonl` (moore-web validation, 1,000
+rows). Best = `checkpoint-782` for all three.
+
+- CPT starts SFT ahead (−0.15/−0.18 at 0.26 epoch) but the gap is gone by
+  the end of the epoch (1.567–1.570). By SFT loss CPT v1 changes nothing;
+  the comparison is decided by chrF++, looping and length ratio on Bouquet
+  dev and moore-web validation (not yet run).
+- Train time 1,181 s (baseline) vs 1,329/1,335 s (merged models): ~12%
+  slower per step in training and ~9% in eval. Configs, trainable params
+  (77.6M) and tied embeddings match; the merged file lacks only the base
+  file's redundant `lm_head` copy. Likely different A100 hardware (not
+  logged), not established.
+
+### 2026-11-25 — dev results: CPT v1 does not help
+
+`checkpoint-782` of each SFT run, served by `train/modal_vllm_server.py`
+(base model = that run's starting model), `scripts/evaluate_translation.py`
+v1 prompt, greedy, penalty 1.05, 256 max tokens. chrF++ (length ratio,
+looping outputs = 8+ words with under 40% unique). Predictions and
+summaries: `eval/results/cpt-v1-dev/{baseline,cpt-ep1,cpt-ep2}/`. No empty
+outputs.
+
+| Set | Dir | Rows | Baseline | CPT ep1 + SFT | CPT ep2 + SFT |
+|---|---|---:|---|---|---|
+| Bouquet sentence dev | fra→mos | 504 | 25.02 (1.007, 2) | 24.67 (1.010, 5) | 24.71 (1.077, 9) |
+| | mos→fra | 504 | 26.86 (0.998, 1) | 27.14 (0.994, 1) | 26.78 (0.997, 1) |
+| | eng→mos | 504 | 24.33 (0.934, 1) | 24.39 (1.017, 7) | 24.51 (0.987, 4) |
+| | mos→eng | 504 | 29.15 (0.989, 0) | 29.38 (0.991, 0) | 29.45 (0.986, 0) |
+| Bouquet paragraph dev | fra→mos | 120 | 25.97 (0.848, 7) | 25.81 (0.852, 8) | 25.95 (0.852, 8) |
+| | mos→fra | 120 | 32.73 (0.913, 0) | 32.12 (0.926, 2) | 30.62 (0.895, 2) |
+| | eng→mos | 120 | 25.88 (0.874, 10) | 25.17 (0.854, 11) | 25.58 (0.806, 7) |
+| | mos→eng | 120 | 35.54 (0.962, 0) | 34.94 (0.982, 1) | 34.62 (0.927, 0) |
+| moore-web validation | fra→mos | 2,491 | 31.07 (1.066, 31) | 30.88 (1.067, 41) | 30.84 (1.076, 46) |
+| | mos→fra | 2,491 | 35.28 (0.948, 4) | 35.03 (0.930, 6) | 35.03 (0.952, 9) |
+
+- **No chrF++ gain**: Bouquet sentence dev within ±0.35 in every direction
+  for both CPT runs; moore-web −0.2 both directions (despite CPT having seen
+  the context around moore-web validation sentences).
+- **The opposite of the goal on looping**: into-Mooré looping goes up with
+  CPT, not down: moore-web fra→mos 31 → 41 → 46, Bouquet sentence fra→mos
+  2 → 5 → 9, and the moore-web fra→mos length ratio stays ~1.07.
+- **Into-French paragraphs drop with more CPT**: Bouquet paragraph mos→fra
+  32.73 → 32.12 → 30.62 (120 rows only), mos→eng −0.6/−0.9. Consistent with
+  forgetting long-context French/English after 2 epochs of Mooré-only text.
+- Single runs, no seeds: differences under ~1 chrF++ are not established.
+  The looping increase is consistent across sets and grows with CPT epochs.
+- Next options: replay (rung 7, French/translation rows in CPT), parallel
+  rows (rung 3b), lower CPT lr or 1 epoch, or more Mooré (rungs 4–6). Bouquet
+  `test` not used.
 
 ## Ladder
 
