@@ -44,24 +44,46 @@ candidate differs from it only by the CPT stage.
   them before comparing): FlashAttention-2 via `kernels`, length-grouped SFT
   batches, micro-batch 32 x 2 accumulation. 4.8x faster on an A100 40GB
   (training logbook, 2026-11-25).
-- **Held-out check**: drop CPT documents/sentences that contain moore-web
-  validation/test, Bouquet dev/test or FLORES+ dev/devtest sentences, with
-  the mixer's `normalize_text` matching. Web Mooré text is likely to overlap
-  moore-web test (same sites).
+- ~~**Held-out check**~~ Done 2026-11-25 in `scripts/build_cpt_data.py`:
+  sentence-level removal of moore-web validation/test, FLORES+ dev/devtest and
+  Bouquet dev/test (sentence and paragraph level) Mooré, with the mixer's
+  `normalize_text`; the build fails if one of 4+ words and 20+ characters is
+  still inside a document.
 
-## Data candidates (sizes not yet measured)
+## Data candidates
 
-| Source | What it is | Notes |
-|---|---|---|
-| Mooré side of the training mix | Mooré sentences of `fra_mos_mix_train_v1.jsonl` | No new text: controls for "more passes over the same Mooré" |
-| `madoss/moore-web-mono` | Web Mooré | Check overlap with moore-web test first |
-| `madoss/mos-latn-hplt` | HPLT Mooré documents (1,892 docs, 28.5 MB with html/xml fields) | Small; `text` column, LID `prob` to filter |
-| `burkimbia/gomdeesa-ocr-brut` | Raw OCR | Needs cleaning; check OCR noise before use |
-| `burkimbia/sidbi-ziri-dataset` | — | Large; skipped for now |
+Measured 2026-11-25 (our own document sources; the Hub sources below them are
+still unmeasured). Words are whitespace words of the Mooré side; tokens are
+estimated at 2.73 HY-MT tokens per Mooré word (measured on moore-web
+validation), not tokenized. "Held-out hits" = documents containing at least one
+moore-web validation/test, FLORES+ dev/devtest or Bouquet dev/test Mooré
+sentence of 4+ words, after the mixer's `normalize_text`, as a substring.
 
-First step: measure each source (documents, words, tokens with the HY-MT
-tokenizer, share already in the held-out sets) without pulling more than a
-sample, and decide what to download.
+| Source | Where | Mooré docs | Mooré words | ~Tokens | Held-out hits | Notes |
+|---|---|---:|---:|---:|---|---|
+| Council of Ministers reports | `madoss/conseil-ministres-parsed` `corpus.json` (`mos` sections, sentence lists) | 93 sessions (2024-02 to 2026-09-10) | 421,550 | 1.15M | **93 of 93 sessions**: 644 moore-web validation + 628 test sentences | Government register. Archive (`hf://buckets/madoss/faso-web-docs/conseils-ministres`) has 3 newer sessions (2026-09-24, 10-08, 10-22) not in the release: re-run `conseil-ministres build`. The SFT mix already has the aligned pairs |
+| Raamde news | `moore-web/data/raamde/raamde_corpus_with_glotlid.json`, `segments.moore` (moore-web's Mooré run) | 429 articles (425 without job ads) | 127,845 | 350k | 163 of 429 articles: 139 validation + 61 test sentences | News. Mooré is a rewrite of the French, fine for CPT. Use moore-web's split, not per-unit GlotLID labels (data-mixing logbook) |
+| Ministry of Education Facebook posts | `hf://buckets/madoss/ministereduc-bf`, `data/YYYY/MM/*/mos.txt` | 27 | 17,624 | 48k | 0 | Since 2026-05, grows ~weekly. All 27 have a French version too |
+| faso-web-docs: running text with a text layer | `hf://buckets/madoss/faso-web-docs` | ~15 PDFs/texts | ~100k (rough: several are bilingual, Mooré share estimated) | ~270k | expert 12, kade 69, sida 16, udhr 4, nouvel-an 8 (+2 Bouquet test), mooreburkina 183 (+2 Bouquet test) | mooreburkina tales/proverbs apps 41.6k; *Pag ne a sid viim* 16.6k; Kadé SIDA facilitator 14.7k; Du Mooré literacy series ~30k (bilingual); SIDA book 7.8k (bilingual); expert batch 45k (bilingual); UDHR 2.5k; New Year 1.3k. These are moore-web's human-quality dev/test documents |
+| faso-web-docs: scanned Mooré PDFs | `burkinadoc/{contes,agriculture,documentaires}-moore`, `alimentation-vaches-laitieres`, `kelyam` Mooré sides | ~25 PDFs, ~140 pages | ~20 w/page extractable (headers only) | — | — | Need OCR first |
+| faso-web-docs: dictionaries | `moore-dictionaries/`, `mooreburkina-priority/pdf/01-03,10-12,14,15,17,18` | — | 265k–345k per dictionary (all three languages) | — | — | Lexicon entries, not running text; `02/11` and `03/12` are duplicates. At most a small separate rung (example sentences only) |
+| Mooré side of the training mix | Mooré sentences of `fra_mos_mix_train_v1.jsonl` | | | | | No new text: controls for "more passes over the same Mooré" |
+| `madoss/moore-web-mono` | Web Mooré | | | | | Check overlap with moore-web test first |
+| `madoss/mos-latn-hplt` | HPLT Mooré documents (1,892 docs, 28.5 MB with html/xml fields) | | | | | Small; `text` column, LID `prob` to filter |
+| `burkimbia/gomdeesa-ocr-brut` | Raw OCR | | | | | Needs cleaning; check OCR noise before use |
+| `burkimbia/sidbi-ziri-dataset` | — | | | | | Large; skipped for now |
+
+Our own sources total ~0.67M Mooré words (~1.8M tokens), about two thirds
+from the Council reports.
+
+**Decontamination has to be sentence-level, not document-level**:
+moore-web's validation/test are split by row, so every Council session holds
+some of them, and dropping whole documents would drop all Council text.
+Remove held-out sentences from each document, as the SFT mix already does
+for the same sessions. The rest of a session stays, so the model sees the
+context around moore-web test sentences: **select on Bouquet dev** (2 Bouquet
+test hits only, none in dev) and treat moore-web validation as a secondary
+check for CPT candidates that include Council or Raamde.
 
 ## Ladder
 
@@ -71,10 +93,21 @@ previous best.
 1. **Baseline**: 1-epoch SFT, faster settings.
 2. **CPT on the mix's own Mooré text**: tells apart "new Mooré text helps"
    from "more Mooré tokens of any kind help".
-3. **+ moore-web-mono**, decontaminated.
-4. **+ HPLT**.
-5. **+ gomdeesa OCR**, if it survives cleaning.
-6. **Replay**: mix some French text or translation rows into CPT if into-French
+3. **Our documents**: `data/cpt_mos_v1.jsonl` (630 docs) +
+   `cpt_mos_validation_v1.jsonl` (20 docs), 609,252 words (~1.66M tokens
+   estimated): council 397,000, raamde 123,504, ministereduc 17,538,
+   faso_docs 71,210. Built by `scripts/build_cpt_data.py` (seed 42).
+   - **3b. + French↔Mooré parallel text** (not built yet): rung 3 plus
+     `cpt_mos_fra_parallel_v1.jsonl` at ~20–30% of CPT tokens, compared with
+     rung 3 alone. Label format (`French: …` / `Mossi: …`, random order,
+     many pairs per row), no SFT instruction; Council sections matched by
+     number, tale volume 5, Ministry posts with both languages; both sides
+     decontaminated. Details and reasons in the
+     [data-mixing logbook](../logbooks/data-mixing.md) (2026-11-25).
+4. **+ moore-web-mono**, decontaminated.
+5. **+ HPLT**.
+6. **+ gomdeesa OCR** and OCRed burkinadoc scans, if they survive cleaning.
+7. **Replay**: mix some French text or translation rows into CPT if into-French
    scores drop (forgetting).
 
 Knobs, one at a time once a data mix wins: CPT tokens (epochs), LoRA rank vs

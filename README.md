@@ -22,6 +22,7 @@ train/merge_lora_weight.sh       # LoRA merge launcher
 train/merge_lora_weight.py       # LoRA merge entrypoint
 train/modal_merge.py             # LoRA merge on Modal, into the hy-mt-models Volume
 scripts/mix_translation_data.py  # mos/dyu/fra/eng bidirectional data mixer
+scripts/build_cpt_data.py        # Mooré plain-text documents for continued pretraining
 train/ds_zero*.json              # DeepSpeed configs for full fine-tuning launchers
 ```
 
@@ -237,6 +238,23 @@ for split in train validation; do
     --output data/fra_mos_mix_${split}_v1.jsonl
 done
 ```
+
+Build the Mooré plain-text documents for continued pretraining
+(`--data-format text`): Council of Ministers reports
+(`madoss/conseil-ministres-parsed`, pinned revision), Raamde news, Ministry of
+Education posts and Mooré running text from faso-web-docs. Raamde, the Ministry
+posts and faso-web-docs are read from local checkouts next to this repo
+(`../moore-web`, `../ministereduc_bf/data`, `../faso-web-docs`; override with
+`--raamde-file`, `--ministereduc-dir`, `--faso-docs-dir`). Needs `pdftotext`
+(poppler-utils).
+
+```bash
+uv run python scripts/build_cpt_data.py   # data/cpt_mos_v1.jsonl, data/cpt_mos_validation_v1.jsonl
+```
+
+Sentences of moore-web validation/test, FLORES+ dev/devtest and Bouquet
+dev/test are removed one by one (moore-web splits by row, so whole documents
+can't be dropped), and the build fails if one is still found in a document.
 
 ## Evaluation on Modal
 
